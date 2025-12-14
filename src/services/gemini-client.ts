@@ -1,5 +1,7 @@
 /**
- * Gemini API クライアント (Nano Banana Pro)
+ * Gemini API クライアント
+ * - テキスト分析: Gemini 2.0 Flash
+ * - 画像生成: Nano Banana Pro (gemini-3-pro-image-preview)
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -7,14 +9,52 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Nano Banana Pro モデル
-const MODEL_NAME = 'gemini-3-pro-image-preview';
+// モデル名
+const TEXT_MODEL = 'gemini-2.0-flash';
+const IMAGE_MODEL = 'gemini-3-pro-image-preview';
 
 export interface ImageGenerationResult {
   success: boolean;
   imageData?: Buffer;
   mimeType?: string;
   error?: string;
+}
+
+/**
+ * テキスト分析（JSON出力）
+ */
+export async function analyzeWithJSON<T>(
+  systemPrompt: string,
+  userMessage: string
+): Promise<T> {
+  const model = genAI.getGenerativeModel({
+    model: TEXT_MODEL,
+    generationConfig: {
+      temperature: 0.3,
+      responseMimeType: 'application/json',
+    },
+  });
+
+  const prompt = `${systemPrompt}\n\n${userMessage}`;
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  const text = response.text();
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // JSONパースに失敗した場合、コードブロックを除去して再試行
+    let jsonString = text.trim();
+    if (jsonString.startsWith('```')) {
+      const lines = jsonString.split('\n');
+      lines.shift();
+      if (lines[lines.length - 1].trim() === '```') {
+        lines.pop();
+      }
+      jsonString = lines.join('\n');
+    }
+    return JSON.parse(jsonString) as T;
+  }
 }
 
 /**
@@ -25,7 +65,7 @@ export async function generateImage(
 ): Promise<ImageGenerationResult> {
   try {
     const model = genAI.getGenerativeModel({
-      model: MODEL_NAME,
+      model: IMAGE_MODEL,
       generationConfig: {
         // @ts-ignore - Gemini API supports this but types may be outdated
         responseModalities: ['image', 'text'],

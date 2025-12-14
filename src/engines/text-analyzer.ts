@@ -3,7 +3,7 @@
  * 議事録テキストを構造化データに変換する
  */
 
-import { analyzeWithJSON } from '../services/claude-client';
+import { analyzeWithJSON } from '../services/gemini-client';
 import type { AnalysisResult, AnalysisOptions, Topic } from '../types/analysis';
 
 const ANALYSIS_SYSTEM_PROMPT = `あなたは議事録を分析し、図解インフォグラフィックの設計を行う専門家です。
