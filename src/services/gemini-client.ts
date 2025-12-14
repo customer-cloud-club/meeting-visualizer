@@ -1,7 +1,8 @@
 /**
  * Gemini API クライアント
- * - テキスト分析: Gemini 2.0 Flash
- * - 画像生成: Nano Banana Pro (gemini-3-pro-image-preview)
+ * Nano Banana Pro (gemini-3-pro-image-preview) で全て処理
+ * - テキスト分析
+ * - 画像生成
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -9,9 +10,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// モデル名
-const TEXT_MODEL = 'gemini-2.0-flash';
-const IMAGE_MODEL = 'gemini-3-pro-image-preview';
+// Nano Banana Pro - テキストも画像も両方対応
+const MODEL_NAME = 'gemini-3-pro-image-preview';
 
 export interface ImageGenerationResult {
   success: boolean;
@@ -28,10 +28,11 @@ export async function analyzeWithJSON<T>(
   userMessage: string
 ): Promise<T> {
   const model = genAI.getGenerativeModel({
-    model: TEXT_MODEL,
+    model: MODEL_NAME,
     generationConfig: {
       temperature: 0.3,
-      responseMimeType: 'application/json',
+      // @ts-ignore
+      responseModalities: ['text'],
     },
   });
 
@@ -65,9 +66,9 @@ export async function generateImage(
 ): Promise<ImageGenerationResult> {
   try {
     const model = genAI.getGenerativeModel({
-      model: IMAGE_MODEL,
+      model: MODEL_NAME,
       generationConfig: {
-        // @ts-ignore - Gemini API supports this but types may be outdated
+        // @ts-ignore
         responseModalities: ['image', 'text'],
       },
     });
