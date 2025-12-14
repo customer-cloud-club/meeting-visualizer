@@ -1,0 +1,186 @@
+openapi: 3.0.3
+info:
+  title: Meeting Visualizer API
+  description: 議事録を図解インフォグラフィックに変換するAPI
+  version: 1.0.0
+
+servers:
+  - url: https://meeting-visualizer.vercel.app/api
+    description: Production
+  - url: http://localhost:3000/api
+    description: Local development
+
+paths:
+  /generate:
+    post:
+      summary: 図解生成ジョブを作成
+      description: 議事録テキストを受け取り、図解生成ジョブを開始する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: 議事録テキスト
+                  maxLength: 50000
+                  example: "会議の議事録テキスト..."
+                options:
+                  type: object
+                  properties:
+                    maxSlides:
+                      type: integer
+                      default: 8
+                      minimum: 1
+                      maximum: 12
+                      description: 生成する最大枚数
+                    style:
+                      type: string
+                      enum: [default, minimal, detailed]
+                      default: default
+      responses:
+        '201':
+          description: ジョブ作成成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [queued]
+                  estimatedTime:
+                    type: integer
+                    description: 推定処理時間（秒）
+        '400':
+          description: 不正なリクエスト
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: レート制限超過
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{jobId}:
+    get:
+      summary: ジョブ状態を取得
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: ジョブ状態
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '404':
+          description: ジョブが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /images/{imageId}:
+    get:
+      summary: 生成画像を取得
+      parameters:
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 画像データ
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: 画像が見つからない
+
+components:
+  schemas:
+    Job:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, analyzing, generating, completed, failed]
+        progress:
+          type: object
+          properties:
+            current:
+              type: integer
+            total:
+              type: integer
+            currentStep:
+              type: string
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageResult'
+        error:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    ImageResult:
+      type: object
+      properties:
+        id:
+          type: string
+        index:
+          type: integer
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        thumbnail:
+          type: string
+          format: uri
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
