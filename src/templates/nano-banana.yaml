@@ -1,0 +1,33 @@
+# Nano Banana Pro YAML Template
+# Based on Hayashi Shunsuke's methodology
+
+visual_communication_format:
+  metadata:
+    format_name: "Hand-Drawn Metaphorical Infographic Sequence Format"
+    description: "手書き風インフォグラフィック生成用テンプレート"
+    target_audience: "General Audience / Non-technical stakeholders"
+    language: "Japanese"
+    constraints:
+      - "出力は必ずこのYAMLフォーマットに従うこと"
+      - "インデントによる厳格なネスト構造を維持すること"
+      - "画像内のテキストは全て日本語で記述すること"
+
+  global_style_definition:
+    art_style:
+      primary_aesthetic: "Graphic Recording / Hand-drawn Sketch"
+      texture_reference: "Marker pens, crayons, and colored pencils on paper texture"
+      overall_vibe: "Friendly, soft, approachable, 'Junior High School Student's Notebook' feel"
+      imperfection_level: "High - embrace rough lines, slight smudges, and human touch"
+    color_palette:
+      background: "Clean white or off-white paper texture"
+      primary_colors:
+        text_and_outlines: "Black or dark charcoal marker"
+        emphasis_attention: "Yellow / Orange (marker/crayon texture)"
+        structure_safety: "Blue / Green (marker/crayon texture)"
+        critical_warning: "Red (marker/crayon texture)"
+      color_usage_rule: "Use colors sparingly for accents and meaning"
+    basic_visual_elements:
+      characters: "Simple stick figures with expressive faces"
+      connectors: "Hand-drawn arrows with varied thickness"
+      containers: "Hand-drawn boxes, circles, clouds, or speech bubbles"
+      typography: "Handwritten, slightly messy Japanese script"
