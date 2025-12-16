@@ -28,6 +28,31 @@ npm run typecheck    # Check types
 npm run lint         # Lint code
 ```
 
+### Docker (Production)
+
+```bash
+# 1. 環境変数を設定
+cp .env.example .env.local
+# .env.local にGEMINI_API_KEYを設定
+
+# 2. ビルド＆起動
+docker-compose up --build
+
+# 3. アクセス
+open http://localhost:3000
+
+# バックグラウンドで起動
+docker-compose up -d
+
+# 停止
+docker-compose down
+
+# ログ確認
+docker-compose logs -f app
+```
+
+**Dockerイメージサイズ**: 約280MB (Alpine Linux + Next.js Standalone)
+
 ## Project Structure
 
 ```
