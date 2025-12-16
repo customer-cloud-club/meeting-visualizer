@@ -5,7 +5,14 @@
 
 import type { Job } from '@/types/job';
 
-const jobs = new Map<string, Job>();
+// Next.jsの開発モードでもモジュール間で共有されるようにglobalThisを使用
+declare global {
+  // eslint-disable-next-line no-var
+  var __jobStore: Map<string, Job> | undefined;
+}
+
+const jobs = globalThis.__jobStore ?? new Map<string, Job>();
+globalThis.__jobStore = jobs;
 
 export function getJob(id: string): Job | undefined {
   return jobs.get(id);

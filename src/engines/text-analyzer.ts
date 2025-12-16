@@ -43,8 +43,9 @@ const ANALYSIS_SYSTEM_PROMPT = `あなたは議事録を分析し、図解イン
 2. keyPointsは3-5個に絞る
 3. metaphorsは視覚的にわかりやすいものを選ぶ（棒人間、アイコン、矢印など）
 4. textElementsは日本語で、簡潔に
-5. suggestedSlideCountは内容の複雑さに応じて4-8枚の範囲で提案
+5. 指定された枚数ぴったりのトピックを生成すること（重要！）
 6. 全体の流れ・ストーリーを意識する
+7. 内容が少なくても、異なる切り口・視点から分割して指定枚数にすること
 
 重要：必ずJSONのみを出力してください。説明文は不要です。`;
 
@@ -67,8 +68,10 @@ export async function analyzeText(
   const userPrompt = `以下の議事録を分析してください。
 
 制約：
-- 最大${maxSlides}枚の図解に分割
+- 必ず${maxSlides}枚ぴったりの図解に分割してください（これは絶対条件です）
+- topicsの配列は必ず${maxSlides}個の要素を含むこと
 - スタイル: ${styleHint}
+- 内容が少なくても、異なる視点・切り口から${maxSlides}枚に分割すること
 
 ---
 ${cleanedText}
@@ -105,8 +108,8 @@ function preprocessText(text: string): string {
     .replace(/\n{3,}/g, '\n\n')
     // 先頭・末尾の空白を削除
     .trim()
-    // 長すぎる場合は切り詰め
-    .slice(0, 50000);
+    // 長すぎる場合は切り詰め（200,000文字 = 約2時間の会議）
+    .slice(0, 200000);
 }
 
 /**

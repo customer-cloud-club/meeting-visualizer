@@ -7,30 +7,75 @@ interface ImageGalleryProps {
   images: ImageResult[];
 }
 
+// 画像パスをAPI URLに変換
+const getImageUrl = (filepath: string) => {
+  // /generated/xxx/slide.jpg → /api/images/serve?path=generated/xxx/slide.jpg
+  const cleanPath = filepath.replace(/^\/+/, '');
+  return `/api/images/serve?path=${encodeURIComponent(cleanPath)}`;
+};
+
 export default function ImageGallery({ images }: ImageGalleryProps) {
   const [selectedImage, setSelectedImage] = useState<ImageResult | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
 
   if (images.length === 0) {
     return null;
   }
 
-  const downloadImage = async (image: ImageResult) => {
-    const link = document.createElement('a');
-    link.href = image.filepath;
-    link.download = `${image.id}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // 個別ダウンロード - fetch + blob方式
+  const downloadImage = async (image: ImageResult, showAlert = true) => {
+    try {
+      const response = await fetch(getImageUrl(image.filepath));
+      if (!response.ok) throw new Error('画像の取得に失敗しました');
+
+      const blob = await response.blob();
+      const extension = image.mimeType?.includes('png') ? 'png' : 'jpg';
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${image.title || image.id}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // メモリ解放
+      window.URL.revokeObjectURL(url);
+      return true;
+    } catch (error) {
+      console.error('Download error:', error);
+      if (showAlert) {
+        alert('ダウンロードに失敗しました');
+      }
+      return false;
+    }
   };
 
+  // 全てダウンロード
   const downloadAll = async () => {
     setDownloading(true);
-    for (const image of images) {
-      await downloadImage(image);
-      await new Promise((r) => setTimeout(r, 200));
+    setDownloadProgress({ current: 0, total: images.length });
+
+    let successCount = 0;
+
+    for (let i = 0; i < images.length; i++) {
+      setDownloadProgress({ current: i + 1, total: images.length });
+      const success = await downloadImage(images[i], false);
+      if (success) successCount++;
+      // ブラウザが処理できるように少し待つ
+      await new Promise((r) => setTimeout(r, 500));
     }
+
     setDownloading(false);
+
+    if (successCount === images.length) {
+      // 成功通知は不要（ファイルが保存されるので明らか）
+    } else if (successCount > 0) {
+      alert(`${successCount}/${images.length}枚のダウンロードが完了しました`);
+    } else {
+      alert('ダウンロードに失敗しました');
+    }
   };
 
   return (
@@ -58,14 +103,14 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <span>ダウンロード中...</span>
+              <span>{downloadProgress.current}/{downloadProgress.total} 保存中...</span>
             </>
           ) : (
             <>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span>すべてダウンロード</span>
+              <span>すべて保存（{images.length}枚）</span>
             </>
           )}
         </button>
@@ -82,7 +127,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
           >
             <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-md group-hover:shadow-xl transition-shadow">
               <img
-                src={image.filepath}
+                src={getImageUrl(image.filepath)}
                 alt={image.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
@@ -154,7 +199,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
             {/* 画像 */}
             <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
               <img
-                src={selectedImage.filepath}
+                src={getImageUrl(selectedImage.filepath)}
                 alt={selectedImage.title}
                 className="w-full max-h-[70vh] object-contain"
               />

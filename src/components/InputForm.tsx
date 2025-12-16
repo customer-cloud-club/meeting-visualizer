@@ -7,16 +7,31 @@ interface InputFormProps {
   disabled?: boolean;
 }
 
-const MAX_CHARS = 50000;
+const MAX_CHARS = 200000; // 2時間の会議に対応（Gemini 3 Proは100万トークン対応）
+
+// テキスト長から最適な枚数を推定
+function estimateSlideCount(text: string): number {
+  const length = text.length;
+  if (length < 500) return 2;
+  if (length < 1500) return 4;
+  if (length < 3000) return 6;
+  if (length < 6000) return 8;
+  if (length < 10000) return 10;
+  return 12;
+}
 
 export default function InputForm({ onSubmit, disabled }: InputFormProps) {
   const [text, setText] = useState('');
-  const [maxSlides, setMaxSlides] = useState(8);
+  const [slideMode, setSlideMode] = useState<'auto' | number>('auto');
   const [style, setStyle] = useState('default');
+
+  // オートモード時の推定枚数
+  const estimatedSlides = estimateSlideCount(text);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim() && text.length <= MAX_CHARS) {
+      const maxSlides = slideMode === 'auto' ? estimatedSlides : slideMode;
       onSubmit(text, { maxSlides, style });
     }
   };
@@ -82,25 +97,35 @@ export default function InputForm({ onSubmit, disabled }: InputFormProps) {
       {/* オプション */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="maxSlides" className="block text-sm font-semibold text-gray-700 mb-2">
+          <label htmlFor="slideMode" className="block text-sm font-semibold text-gray-700 mb-2">
             生成枚数
           </label>
           <select
-            id="maxSlides"
-            value={maxSlides}
-            onChange={(e) => setMaxSlides(Number(e.target.value))}
+            id="slideMode"
+            value={slideMode}
+            onChange={(e) => setSlideMode(e.target.value === 'auto' ? 'auto' : Number(e.target.value))}
             className={`select-field ${disabled ? 'bg-gray-50 cursor-not-allowed' : ''}`}
             disabled={disabled}
           >
-            {[2, 4, 6, 8, 10, 12].map((n) => (
-              <option key={n} value={n}>
-                {n}枚
-              </option>
-            ))}
+            <option value="auto">🪄 オート（AIが最適化）</option>
+            <optgroup label="手動で指定">
+              {[2, 4, 6, 8, 10, 12].map((n) => (
+                <option key={n} value={n}>
+                  {n}枚
+                </option>
+              ))}
+            </optgroup>
           </select>
-          <p className="mt-1.5 text-xs text-gray-500">
-            内容に応じて最適な枚数を提案します
-          </p>
+          {slideMode === 'auto' && text.length > 0 ? (
+            <p className="mt-1.5 text-xs text-indigo-600 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
+              推定: {estimatedSlides}枚（{text.length.toLocaleString()}文字から算出）
+            </p>
+          ) : (
+            <p className="mt-1.5 text-xs text-gray-500">
+              オートならテキスト量に応じて自動決定
+            </p>
+          )}
         </div>
 
         <div>

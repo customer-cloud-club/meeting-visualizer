@@ -20,9 +20,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (body.text.length > 50000) {
+    if (body.text.length > 200000) {
       return NextResponse.json(
-        { error: 'テキストは50,000文字以内にしてください' },
+        { error: 'テキストは200,000文字以内にしてください' },
         { status: 400 }
       );
     }
