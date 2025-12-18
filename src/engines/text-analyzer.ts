@@ -6,7 +6,7 @@
 import { analyzeWithJSON } from '../services/gemini-client';
 import type { AnalysisResult, AnalysisOptions, Topic } from '../types/analysis';
 
-const ANALYSIS_SYSTEM_PROMPT = `あなたは議事録を分析し、図解インフォグラフィックの設計を行う専門家です。
+const ANALYSIS_SYSTEM_PROMPT_JA = `あなたは議事録を分析し、図解インフォグラフィックの設計を行う専門家です。
 
 入力された議事録テキストを分析し、以下の形式のJSONで出力してください：
 
@@ -49,6 +49,49 @@ const ANALYSIS_SYSTEM_PROMPT = `あなたは議事録を分析し、図解イン
 
 重要：必ずJSONのみを出力してください。説明文は不要です。`;
 
+const ANALYSIS_SYSTEM_PROMPT_EN = `You are an expert in analyzing meeting minutes and designing infographic illustrations.
+
+Analyze the input meeting text and output in the following JSON format:
+
+{
+  "topics": [
+    {
+      "id": "topic_01",
+      "title": "Topic title (short and concise)",
+      "keyPoints": ["Point 1", "Point 2", "Point 3"],
+      "metaphors": [
+        {
+          "concept": "Abstract concept",
+          "visualRepresentation": "Visual representation (e.g., stick figure climbing a mountain)",
+          "color": "Color to use (e.g., blue, orange)"
+        }
+      ],
+      "visualElements": ["Visual element 1", "Visual element 2"],
+      "textElements": [
+        {
+          "text": "Label text",
+          "attachedTo": "Where to attach",
+          "type": "label"
+        }
+      ],
+      "bottomAnnotation": "Summary text at the bottom of the figure"
+    }
+  ],
+  "suggestedSlideCount": 4,
+  "overallTheme": "Overall theme/message"
+}
+
+Rules:
+1. Each topic becomes one infographic
+2. Keep keyPoints to 3-5 items
+3. Choose metaphors that are visually clear (stick figures, icons, arrows, etc.)
+4. textElements should be in English and concise
+5. Generate exactly the specified number of topics (Important!)
+6. Be aware of the overall flow and story
+7. Even if content is limited, split into the specified number using different perspectives
+
+Important: Output only JSON. No explanations needed.`;
+
 /**
  * 議事録テキストを分析し、構造化データに変換
  */
@@ -63,9 +106,25 @@ export async function analyzeText(
 
   // 最大枚数の制約を追加
   const maxSlides = options?.maxSlides ?? 8;
-  const styleHint = getStyleHint(options?.style ?? 'default');
+  const language = options?.language ?? 'ja';
+  const styleHint = getStyleHint(options?.style ?? 'default', language);
 
-  const userPrompt = `以下の議事録を分析してください。
+  // Choose system prompt based on language
+  const systemPrompt = language === 'en' ? ANALYSIS_SYSTEM_PROMPT_EN : ANALYSIS_SYSTEM_PROMPT_JA;
+
+  const userPrompt = language === 'en'
+    ? `Please analyze the following meeting minutes.
+
+Constraints:
+- Split into exactly ${maxSlides} infographics (This is mandatory)
+- The topics array must contain exactly ${maxSlides} elements
+- Style: ${styleHint}
+- Even if content is limited, split into ${maxSlides} using different perspectives
+
+---
+${cleanedText}
+---`
+    : `以下の議事録を分析してください。
 
 制約：
 - 必ず${maxSlides}枚ぴったりの図解に分割してください（これは絶対条件です）
@@ -82,7 +141,7 @@ ${cleanedText}
     topics: Topic[];
     suggestedSlideCount: number;
     overallTheme: string;
-  }>(ANALYSIS_SYSTEM_PROMPT, userPrompt);
+  }>(systemPrompt, userPrompt, options?.apiKey);
 
   // 結果を整形
   const result: AnalysisResult = {
@@ -115,7 +174,18 @@ function preprocessText(text: string): string {
 /**
  * スタイルに応じたヒントを生成
  */
-function getStyleHint(style: 'default' | 'minimal' | 'detailed'): string {
+function getStyleHint(style: 'default' | 'minimal' | 'detailed', language: 'ja' | 'en' = 'ja'): string {
+  if (language === 'en') {
+    switch (style) {
+      case 'minimal':
+        return 'Minimal elements, simple expression. Only 1-2 main visuals per infographic.';
+      case 'detailed':
+        return 'Detailed expression. Include multiple sub-elements, annotations, comparison charts.';
+      default:
+        return 'Balanced standard expression. Main visual + supplementary elements.';
+    }
+  }
+
   switch (style) {
     case 'minimal':
       return '最小限の要素で、シンプルに表現。各図解に1-2個のメインビジュアルのみ。';

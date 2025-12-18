@@ -23,4 +23,5 @@ export interface GenerationOptions {
   outputDir: string;
   delayBetweenRequests?: number; // ms
   retryCount?: number;
+  apiKey?: string;
 }

@@ -24,15 +24,18 @@ export interface Job {
   progress: JobProgress;
   images: ImageResult[];
   error?: string;
+  cancelled?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateJobRequest {
   text: string;
+  apiKey?: string;
   options?: {
     maxSlides?: number;
     style?: 'default' | 'minimal' | 'detailed';
+    language?: 'ja' | 'en';
   };
 }
 

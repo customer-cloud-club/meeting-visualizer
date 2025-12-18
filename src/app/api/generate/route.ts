@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { setJob, updateJob } from '@/lib/job-store';
 import { analyzeText } from '@/engines/text-analyzer';
 import { generateYAMLPrompts } from '@/engines/yaml-generator';
-import { generateImages } from '@/engines/image-generator';
+import { generateImages, JobCancelledError } from '@/engines/image-generator';
+import { isJobCancelled } from '@/lib/job-store';
 import type { Job, CreateJobRequest } from '@/types/job';
 import type { AnalysisOptions } from '@/types/analysis';
 import fs from 'fs';
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     setJob(job);
 
     // 非同期でジョブを処理
-    processJob(jobId, body.text, body.options);
+    processJob(jobId, body.text, body.options, body.apiKey);
 
     return NextResponse.json({
       jobId,
@@ -65,22 +66,26 @@ export async function POST(request: NextRequest) {
 async function processJob(
   jobId: string,
   text: string,
-  options?: { maxSlides?: number; style?: string }
+  options?: { maxSlides?: number; style?: string; language?: 'ja' | 'en' },
+  apiKey?: string
 ) {
   try {
+    const language = options?.language ?? 'ja';
+
     // Step 1: テキスト分析
     updateJob(jobId, {
       status: 'analyzing',
       progress: {
         current: 1,
         total: 3,
-        currentStep: 'テキストを分析中...',
+        currentStep: language === 'en' ? 'Analyzing text...' : 'テキストを分析中...',
       },
     });
-
     const analysisOptions: AnalysisOptions = {
       maxSlides: options?.maxSlides ?? 8,
       style: (options?.style as 'default' | 'minimal' | 'detailed') ?? 'default',
+      language,
+      apiKey,
     };
 
     const analysis = await analyzeText(text, analysisOptions);
@@ -91,11 +96,16 @@ async function processJob(
       progress: {
         current: 2,
         total: 3,
-        currentStep: 'プロンプトを生成中...',
+        currentStep: language === 'en' ? 'Generating prompts...' : 'プロンプトを生成中...',
       },
     });
 
-    const yamlPrompts = generateYAMLPrompts(analysis);
+    const yamlPrompts = generateYAMLPrompts(analysis, language);
+
+    // キャンセルチェック
+    if (isJobCancelled(jobId)) {
+      return; // Already marked as cancelled
+    }
 
     // Step 3: 画像生成
     updateJob(jobId, {
@@ -103,7 +113,7 @@ async function processJob(
       progress: {
         current: 0,
         total: yamlPrompts.length,
-        currentStep: '画像を生成中...',
+        currentStep: language === 'en' ? 'Generating images...' : '画像を生成中...',
       },
     });
 
@@ -113,7 +123,7 @@ async function processJob(
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const images = await generateImages(yamlPrompts, { outputDir }, (progress) => {
+    const images = await generateImages(yamlPrompts, { outputDir, jobId, apiKey }, (progress) => {
       updateJob(jobId, {
         progress: {
           current: progress.current,
@@ -133,7 +143,7 @@ async function processJob(
       progress: {
         current: yamlPrompts.length,
         total: yamlPrompts.length,
-        currentStep: '完了',
+        currentStep: language === 'en' ? 'Completed' : '完了',
       },
       images: images.map((img) => ({
         ...img,
@@ -141,10 +151,16 @@ async function processJob(
       })),
     });
   } catch (error) {
+    // キャンセルエラーは既にjob-storeで処理済み
+    if (error instanceof JobCancelledError) {
+      console.log(`Job ${jobId} was cancelled by user`);
+      return;
+    }
+
     console.error('Job processing error:', error);
     updateJob(jobId, {
       status: 'failed',
-      error: error instanceof Error ? error.message : '処理中にエラーが発生しました',
+      error: error instanceof Error ? error.message : 'An error occurred during processing',
     });
   }
 }

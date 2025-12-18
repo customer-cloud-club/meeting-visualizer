@@ -6,18 +6,26 @@
 import fs from 'fs';
 import path from 'path';
 import { generateImage, generateImagesSequentially } from '../services/gemini-client';
+import { isJobCancelled } from '../lib/job-store';
 import type { YAMLPrompt } from './yaml-generator';
 import type { ImageResult, GenerationOptions, GenerationProgress } from '../types/image';
+
+export class JobCancelledError extends Error {
+  constructor(jobId: string) {
+    super(`Job ${jobId} was cancelled`);
+    this.name = 'JobCancelledError';
+  }
+}
 
 /**
  * 複数のYAMLプロンプトから画像を生成
  */
 export async function generateImages(
   prompts: YAMLPrompt[],
-  options: GenerationOptions,
+  options: GenerationOptions & { jobId?: string },
   onProgress?: (progress: GenerationProgress) => void
 ): Promise<ImageResult[]> {
-  const { outputDir, delayBetweenRequests = 3000, retryCount = 2 } = options;
+  const { outputDir, delayBetweenRequests = 3000, retryCount = 2, jobId, apiKey } = options;
 
   // 出力ディレクトリ作成
   if (!fs.existsSync(outputDir)) {
@@ -27,6 +35,11 @@ export async function generateImages(
   const results: ImageResult[] = [];
 
   for (let i = 0; i < prompts.length; i++) {
+    // キャンセルチェック
+    if (jobId && isJobCancelled(jobId)) {
+      throw new JobCancelledError(jobId);
+    }
+
     const prompt = prompts[i];
 
     // 進捗通知
@@ -42,7 +55,12 @@ export async function generateImages(
     // リトライ付きで生成
     let lastError: string | undefined;
     for (let attempt = 0; attempt <= retryCount; attempt++) {
-      const result = await generateImage(prompt.prompt);
+      // リトライ前にもキャンセルチェック
+      if (jobId && isJobCancelled(jobId)) {
+        throw new JobCancelledError(jobId);
+      }
+
+      const result = await generateImage(prompt.prompt, apiKey);
 
       if (result.success && result.imageData && result.mimeType) {
         // ファイル保存

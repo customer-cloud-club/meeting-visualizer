@@ -39,4 +39,5 @@ export interface AnalysisOptions {
   maxSlides?: number;
   style?: 'default' | 'minimal' | 'detailed';
   language?: 'ja' | 'en';
+  apiKey?: string;
 }

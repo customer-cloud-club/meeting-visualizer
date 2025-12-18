@@ -1,35 +1,40 @@
 'use client';
 
+import { useI18n } from '@/i18n/context';
 import type { JobProgress, JobStatus } from '@/types/job';
 
 interface ProgressDisplayProps {
   status: JobStatus;
   progress: JobProgress;
+  onStop?: () => void;
+  isStopping?: boolean;
 }
 
-const steps = [
-  { id: 'analyzing', label: 'テキスト分析', icon: '🔍' },
-  { id: 'generating_yaml', label: 'プロンプト生成', icon: '📝' },
-  { id: 'generating_images', label: '画像生成', icon: '🎨' },
-  { id: 'completed', label: '完了', icon: '✨' },
-];
+export default function ProgressDisplay({ status, progress, onStop, isStopping }: ProgressDisplayProps) {
+  const { t } = useI18n();
 
-const statusToStep: Record<JobStatus, number> = {
-  queued: 0,
-  analyzing: 1,
-  generating_yaml: 2,
-  generating_images: 3,
-  completed: 4,
-  failed: -1,
-};
+  const steps = [
+    { id: 'analyzing', label: t('stepAnalyzing'), icon: '🔍' },
+    { id: 'generating_yaml', label: t('stepGeneratingYaml'), icon: '📝' },
+    { id: 'generating_images', label: t('stepGeneratingImages'), icon: '🎨' },
+    { id: 'completed', label: t('stepCompleted'), icon: '✨' },
+  ];
 
-export default function ProgressDisplay({ status, progress }: ProgressDisplayProps) {
+  const statusToStep: Record<JobStatus, number> = {
+    queued: 0,
+    analyzing: 1,
+    generating_yaml: 2,
+    generating_images: 3,
+    completed: 4,
+    failed: -1,
+  };
+
   const currentStep = statusToStep[status];
   const percentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
 
   return (
     <div className="card animate-fade-in">
-      {/* ステップインジケーター */}
+      {/* Step Indicator */}
       <div className="flex items-center justify-between mb-8">
         {steps.map((step, index) => {
           const stepNumber = index + 1;
@@ -39,7 +44,7 @@ export default function ProgressDisplay({ status, progress }: ProgressDisplayPro
 
           return (
             <div key={step.id} className="flex items-center flex-1">
-              {/* ステップ円 */}
+              {/* Step Circle */}
               <div className="flex flex-col items-center">
                 <div
                   className={`
@@ -58,7 +63,7 @@ export default function ProgressDisplay({ status, progress }: ProgressDisplayPro
                     <span>{step.icon}</span>
                   )}
 
-                  {/* パルスアニメーション */}
+                  {/* Pulse Animation */}
                   {isActive && (
                     <span className="absolute inset-0 rounded-full bg-indigo-500 animate-ping opacity-25" />
                   )}
@@ -71,7 +76,7 @@ export default function ProgressDisplay({ status, progress }: ProgressDisplayPro
                 </span>
               </div>
 
-              {/* コネクター */}
+              {/* Connector */}
               {index < steps.length - 1 && (
                 <div className="flex-1 h-1 mx-2 bg-gray-200 rounded-full overflow-hidden">
                   <div
@@ -86,26 +91,26 @@ export default function ProgressDisplay({ status, progress }: ProgressDisplayPro
         })}
       </div>
 
-      {/* 現在のステータス */}
+      {/* Current Status */}
       <div className="text-center mb-6">
         <h3 className="text-xl font-bold text-gray-800 mb-2">
-          {progress.currentStep || '準備中...'}
+          {progress.currentStep || t('progressPreparing')}
         </h3>
         {status === 'generating_images' && progress.total > 0 && (
           <p className="text-gray-500">
-            {progress.current} / {progress.total} 枚
+            {t('progressImageCount', { current: progress.current, total: progress.total })}
           </p>
         )}
       </div>
 
-      {/* プログレスバー（画像生成時のみ詳細表示） */}
+      {/* Progress Bar (detailed display only during image generation) */}
       {status === 'generating_images' && progress.total > 0 && (
         <div className="space-y-3">
           <div className="progress-bar">
             <div className="progress-fill" style={{ width: `${percentage}%` }} />
           </div>
 
-          {/* 画像サムネイルプレビュー */}
+          {/* Image Thumbnail Preview */}
           <div className="flex justify-center gap-2 mt-4">
             {Array.from({ length: progress.total }).map((_, i) => (
               <div
@@ -128,11 +133,39 @@ export default function ProgressDisplay({ status, progress }: ProgressDisplayPro
         </div>
       )}
 
-      {/* Nano Banana Pro バッジ */}
+      {/* Nano Banana Pro Badge */}
       {status === 'generating_images' && (
         <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">
           <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-          <span>Nano Banana Pro で手書き風画像を生成中</span>
+          <span>{t('progressNanoBanana')}</span>
+        </div>
+      )}
+
+      {/* Stop Button */}
+      {onStop && status !== 'completed' && status !== 'failed' && (
+        <div className="mt-6 flex justify-center">
+          <button
+            onClick={onStop}
+            disabled={isStopping}
+            className="px-6 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+          >
+            {isStopping ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>{t('stoppingButton')}</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span>{t('stopButton')}</span>
+              </>
+            )}
+          </button>
         </div>
       )}
     </div>

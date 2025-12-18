@@ -39,6 +39,26 @@ export function deleteJob(id: string): boolean {
   return jobs.delete(id);
 }
 
+export function cancelJob(id: string): Job | undefined {
+  const job = jobs.get(id);
+  if (!job) return undefined;
+
+  const updatedJob = {
+    ...job,
+    cancelled: true,
+    status: 'failed' as const,
+    error: 'Cancelled by user',
+    updatedAt: new Date().toISOString(),
+  };
+  jobs.set(id, updatedJob);
+  return updatedJob;
+}
+
+export function isJobCancelled(id: string): boolean {
+  const job = jobs.get(id);
+  return job?.cancelled === true;
+}
+
 // 古いジョブを削除（1時間以上経過）
 export function cleanupOldJobs(): number {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;

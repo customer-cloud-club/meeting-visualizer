@@ -1,33 +1,32 @@
 'use client';
 
 import { useState } from 'react';
+import { useI18n } from '@/i18n/context';
 import type { ImageResult } from '@/types/image';
 
 interface ImageGalleryProps {
   images: ImageResult[];
+  jobId?: string;
 }
 
-// 画像パスをAPI URLに変換
 const getImageUrl = (filepath: string) => {
-  // /generated/xxx/slide.jpg → /api/images/serve?path=generated/xxx/slide.jpg
   const cleanPath = filepath.replace(/^\/+/, '');
   return `/api/images/serve?path=${encodeURIComponent(cleanPath)}`;
 };
 
-export default function ImageGallery({ images }: ImageGalleryProps) {
+export default function ImageGallery({ images, jobId }: ImageGalleryProps) {
+  const { t } = useI18n();
   const [selectedImage, setSelectedImage] = useState<ImageResult | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
 
   if (images.length === 0) {
     return null;
   }
 
-  // 個別ダウンロード - fetch + blob方式
   const downloadImage = async (image: ImageResult, showAlert = true) => {
     try {
       const response = await fetch(getImageUrl(image.filepath));
-      if (!response.ok) throw new Error('画像の取得に失敗しました');
+      if (!response.ok) throw new Error(t('errorImageFetch'));
 
       const blob = await response.blob();
       const extension = image.mimeType?.includes('png') ? 'png' : 'jpg';
@@ -40,55 +39,75 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
       link.click();
       document.body.removeChild(link);
 
-      // メモリ解放
       window.URL.revokeObjectURL(url);
       return true;
     } catch (error) {
       console.error('Download error:', error);
       if (showAlert) {
-        alert('ダウンロードに失敗しました');
+        alert(t('errorDownloadFailed'));
       }
       return false;
     }
   };
 
-  // 全てダウンロード
   const downloadAll = async () => {
-    setDownloading(true);
-    setDownloadProgress({ current: 0, total: images.length });
-
-    let successCount = 0;
-
-    for (let i = 0; i < images.length; i++) {
-      setDownloadProgress({ current: i + 1, total: images.length });
-      const success = await downloadImage(images[i], false);
-      if (success) successCount++;
-      // ブラウザが処理できるように少し待つ
-      await new Promise((r) => setTimeout(r, 500));
+    if (!jobId) {
+      alert(t('errorNoDownloadInfo'));
+      return;
     }
 
-    setDownloading(false);
+    setDownloading(true);
 
-    if (successCount === images.length) {
-      // 成功通知は不要（ファイルが保存されるので明らか）
-    } else if (successCount > 0) {
-      alert(`${successCount}/${images.length}枚のダウンロードが完了しました`);
-    } else {
-      alert('ダウンロードに失敗しました');
+    try {
+      const response = await fetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jobId,
+          images: images.map(img => ({
+            filepath: img.filepath,
+            title: img.title,
+            id: img.id,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(t('errorDownloadFailed'));
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `infographics_${images.length}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert(t('errorDownloadFailed'));
+    } finally {
+      setDownloading(false);
     }
   };
 
   return (
     <div className="card animate-fade-in">
-      {/* ヘッダー */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <span className="text-3xl">🎨</span>
-            生成された図解
+            {t('galleryTitle')}
           </h2>
           <p className="text-gray-500 mt-1">
-            {images.length}枚のインフォグラフィックが完成しました
+            {t('gallerySubtitle', { count: images.length })}
           </p>
         </div>
 
@@ -103,20 +122,20 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <span>{downloadProgress.current}/{downloadProgress.total} 保存中...</span>
+              <span>{t('downloadingButton')}</span>
             </>
           ) : (
             <>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span>すべて保存（{images.length}枚）</span>
+              <span>{t('downloadAllButton', { count: images.length })}</span>
             </>
           )}
         </button>
       </div>
 
-      {/* 画像グリッド */}
+      {/* Image Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {images.map((image, index) => (
           <div
@@ -132,7 +151,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
 
-              {/* オーバーレイ */}
+              {/* Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl">
                 <div className="absolute bottom-0 left-0 right-0 p-4">
                   <div className="flex items-center justify-between">
@@ -149,7 +168,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
               </div>
             </div>
 
-            {/* 番号バッジ */}
+            {/* Number Badge */}
             <div className="absolute top-2 left-2 w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-md">
               <span className="text-xs font-bold text-gray-700">{index + 1}</span>
             </div>
@@ -157,7 +176,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
         ))}
       </div>
 
-      {/* 成功メッセージ */}
+      {/* Success Message */}
       <div className="mt-8 p-4 bg-green-50 rounded-xl border border-green-100 flex items-center gap-3">
         <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
           <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,28 +184,28 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
           </svg>
         </div>
         <div>
-          <p className="font-semibold text-green-800">生成完了</p>
+          <p className="font-semibold text-green-800">{t('gallerySuccess')}</p>
           <p className="text-sm text-green-600">
-            画像をクリックすると拡大表示・個別ダウンロードができます
+            {t('gallerySuccessHint')}
           </p>
         </div>
       </div>
 
-      {/* モーダル */}
+      {/* Modal */}
       {selectedImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={() => setSelectedImage(null)}
         >
-          {/* 背景オーバーレイ */}
+          {/* Background Overlay */}
           <div className="absolute inset-0 glass-dark" />
 
-          {/* モーダルコンテンツ */}
+          {/* Modal Content */}
           <div
             className="relative max-w-4xl w-full animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 閉じるボタン */}
+            {/* Close Button */}
             <button
               onClick={() => setSelectedImage(null)}
               className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
@@ -196,7 +215,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
               </svg>
             </button>
 
-            {/* 画像 */}
+            {/* Image */}
             <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
               <img
                 src={getImageUrl(selectedImage.filepath)}
@@ -204,7 +223,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
                 className="w-full max-h-[70vh] object-contain"
               />
 
-              {/* フッター */}
+              {/* Footer */}
               <div className="p-6 flex items-center justify-between border-t border-gray-100">
                 <div>
                   <h3 className="font-bold text-gray-800 text-lg">{selectedImage.title}</h3>
@@ -220,12 +239,12 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  <span>ダウンロード</span>
+                  <span>{t('downloadButton')}</span>
                 </button>
               </div>
             </div>
 
-            {/* ナビゲーション */}
+            {/* Navigation */}
             <div className="flex justify-center gap-2 mt-4">
               {images.map((img, i) => (
                 <button

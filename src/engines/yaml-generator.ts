@@ -11,12 +11,14 @@ export interface YAMLPrompt {
   prompt: string;
 }
 
+type Language = 'ja' | 'en';
+
 /**
  * 分析結果から複数のYAMLプロンプトを生成
  */
-export function generateYAMLPrompts(analysis: AnalysisResult): YAMLPrompt[] {
+export function generateYAMLPrompts(analysis: AnalysisResult, language: Language = 'ja'): YAMLPrompt[] {
   return analysis.topics.map((topic, index) =>
-    generateSinglePrompt(topic, index, analysis.overallTheme)
+    generateSinglePrompt(topic, index, analysis.overallTheme, language)
   );
 }
 
@@ -26,7 +28,8 @@ export function generateYAMLPrompts(analysis: AnalysisResult): YAMLPrompt[] {
 function generateSinglePrompt(
   topic: Topic,
   index: number,
-  overallTheme: string
+  overallTheme: string,
+  language: Language
 ): YAMLPrompt {
   const id = `slide_${String(index + 1).padStart(2, '0')}`;
 
@@ -34,17 +37,26 @@ function generateSinglePrompt(
   const visualDescription = buildVisualDescription(topic);
 
   // テキストラベルを構築
-  const textLabels = buildTextLabels(topic);
+  const textLabels = buildTextLabels(topic, language);
 
   // 構図の説明を構築
   const compositionDescription = buildComposition(topic);
 
-  const prompt = `Create a hand-drawn infographic illustration in Japanese.
+  // Language-specific prompt
+  const languageInstruction = language === 'en'
+    ? `Create a hand-drawn infographic illustration in English.`
+    : `Create a hand-drawn infographic illustration in Japanese.`;
+
+  const textLanguageNote = language === 'en'
+    ? `CRITICAL: All text labels MUST be written in English. The text must be clearly readable.`
+    : `CRITICAL: All text labels MUST be written in Japanese hiragana/katakana/kanji. The text must be clearly readable.`;
+
+  const prompt = `${languageInstruction}
 
 === ART STYLE ===
 - Style: Graphic Recording / Hand-drawn Sketch
 - Texture: Marker pens, crayons, and colored pencils on paper texture
-- Vibe: Friendly, soft, approachable, 'Junior High School Student's Notebook' feel
+- Vibe: Friendly, soft, approachable, 'Student's Notebook' feel
 - Imperfection: High - embrace rough lines, slight smudges, and human touch
 
 === COLOR PALETTE ===
@@ -57,7 +69,7 @@ function generateSinglePrompt(
 === VISUAL ELEMENTS ===
 ${visualDescription}
 
-=== JAPANESE TEXT LABELS (MUST INCLUDE) ===
+=== TEXT LABELS (MUST INCLUDE) ===
 ${textLabels}
 
 === COMPOSITION ===
@@ -66,7 +78,7 @@ ${compositionDescription}
 === OVERALL THEME ===
 ${overallTheme}
 
-CRITICAL: All text labels MUST be written in Japanese hiragana/katakana/kanji. The text must be clearly readable.`;
+${textLanguageNote}`;
 
   return {
     id,
@@ -118,11 +130,14 @@ function buildVisualDescription(topic: Topic): string {
 /**
  * テキストラベルを構築
  */
-function buildTextLabels(topic: Topic): string {
+function buildTextLabels(topic: Topic, language: Language): string {
   const labels: string[] = [];
 
+  const titlePosition = language === 'en' ? 'Title position' : 'タイトル位置';
+  const relatedElement = language === 'en' ? 'Related visual element' : '関連ビジュアル要素';
+
   // タイトル
-  labels.push(`- "${topic.title}" → タイトル位置`);
+  labels.push(`- "${topic.title}" → ${titlePosition}`);
 
   // テキスト要素から
   topic.textElements.forEach((elem) => {
@@ -132,12 +147,13 @@ function buildTextLabels(topic: Topic): string {
   // キーポイントからラベル生成（最大3つ）
   topic.keyPoints.slice(0, 3).forEach((point) => {
     const shortLabel = point.length > 15 ? point.slice(0, 15) + '...' : point;
-    labels.push(`- "${shortLabel}" → 関連ビジュアル要素`);
+    labels.push(`- "${shortLabel}" → ${relatedElement}`);
   });
 
   // ボトムアノテーション
   if (topic.bottomAnnotation) {
-    labels.push(`\nBottom annotation: "${topic.bottomAnnotation}"`);
+    const annotationLabel = language === 'en' ? 'Bottom annotation' : '下部注釈';
+    labels.push(`\n${annotationLabel}: "${topic.bottomAnnotation}"`);
   }
 
   return labels.join('\n');

@@ -7,11 +7,19 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
 // Nano Banana Pro - テキストも画像も両方対応
 const MODEL_NAME = 'gemini-3-pro-image-preview';
+
+/**
+ * APIキーからGenAIインスタンスを取得
+ */
+function getGenAI(apiKey?: string): GoogleGenerativeAI {
+  const key = apiKey || process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new Error('Gemini API key is required. Please set it in Settings.');
+  }
+  return new GoogleGenerativeAI(key);
+}
 
 export interface ImageGenerationResult {
   success: boolean;
@@ -25,8 +33,10 @@ export interface ImageGenerationResult {
  */
 export async function analyzeWithJSON<T>(
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
+  apiKey?: string
 ): Promise<T> {
+  const genAI = getGenAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: MODEL_NAME,
     generationConfig: {
@@ -41,20 +51,62 @@ export async function analyzeWithJSON<T>(
   const response = result.response;
   const text = response.text();
 
+  return parseJSONResponse<T>(text);
+}
+
+/**
+ * AIレスポンスからJSONを抽出してパース
+ */
+function parseJSONResponse<T>(text: string): T {
+  // Step 1: そのままパースを試みる
   try {
     return JSON.parse(text) as T;
   } catch {
-    // JSONパースに失敗した場合、コードブロックを除去して再試行
-    let jsonString = text.trim();
-    if (jsonString.startsWith('```')) {
-      const lines = jsonString.split('\n');
-      lines.shift();
-      if (lines[lines.length - 1].trim() === '```') {
-        lines.pop();
-      }
-      jsonString = lines.join('\n');
+    // 続行
+  }
+
+  // Step 2: マークダウンコードブロックを除去
+  let jsonString = text.trim();
+
+  // ```json または ``` で囲まれている場合
+  const codeBlockMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    jsonString = codeBlockMatch[1].trim();
+    try {
+      return JSON.parse(jsonString) as T;
+    } catch {
+      // 続行
     }
+  }
+
+  // Step 3: JSONの開始位置と終了位置を探す
+  const firstBrace = jsonString.indexOf('{');
+  const lastBrace = jsonString.lastIndexOf('}');
+
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    jsonString = jsonString.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(jsonString) as T;
+    } catch {
+      // 続行
+    }
+  }
+
+  // Step 4: よくあるJSON問題を修正
+  // 末尾のカンマを除去
+  jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+  // 改行を含む文字列値を修正
+  jsonString = jsonString.replace(/:\s*"([^"]*)\n([^"]*)"/g, ': "$1\\n$2"');
+
+  try {
     return JSON.parse(jsonString) as T;
+  } catch (error) {
+    // デバッグ用にエラーログを出力
+    console.error('JSON Parse Error. Raw text length:', text.length);
+    console.error('Extracted JSON length:', jsonString.length);
+    console.error('First 500 chars:', jsonString.slice(0, 500));
+    console.error('Last 500 chars:', jsonString.slice(-500));
+    throw new Error(`Failed to parse JSON response: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -62,9 +114,11 @@ export async function analyzeWithJSON<T>(
  * Nano Banana Pro で画像を生成
  */
 export async function generateImage(
-  prompt: string
+  prompt: string,
+  apiKey?: string
 ): Promise<ImageGenerationResult> {
   try {
+    const genAI = getGenAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: MODEL_NAME,
       generationConfig: {
@@ -114,7 +168,8 @@ export async function generateImage(
 export async function generateImagesSequentially(
   prompts: string[],
   delayMs: number = 3000,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  apiKey?: string
 ): Promise<ImageGenerationResult[]> {
   const results: ImageGenerationResult[] = [];
 
@@ -123,7 +178,7 @@ export async function generateImagesSequentially(
       onProgress(i + 1, prompts.length);
     }
 
-    const result = await generateImage(prompts[i]);
+    const result = await generateImage(prompts[i], apiKey);
     results.push(result);
 
     // 最後以外は待機
