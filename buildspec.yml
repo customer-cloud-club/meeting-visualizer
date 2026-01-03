@@ -20,7 +20,10 @@ phases:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
-      - docker build --build-arg GITHUB_TOKEN=$GITHUB_TOKEN -t $ECR_REPOSITORY_URL:$IMAGE_TAG -t $ECR_REPOSITORY_URL:latest .
+      - echo "ECR_REPOSITORY_URL=$ECR_REPOSITORY_URL"
+      - echo "IMAGE_TAG=$IMAGE_TAG"
+      - echo "GITHUB_TOKEN length=${#GITHUB_TOKEN}"
+      - DOCKER_BUILDKIT=0 docker build --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" -t "$ECR_REPOSITORY_URL:$IMAGE_TAG" -t "$ECR_REPOSITORY_URL:latest" .
 
   post_build:
     commands:
