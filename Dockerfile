@@ -65,5 +65,12 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Health check for ECS container monitoring
+# - Checks /api/health endpoint every 30 seconds
+# - Allows 60 seconds startup time before first check
+# - Timeout: 10 seconds, Retries: 3
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
 # Start the application
 CMD ["node", "server.js"]
