@@ -5,8 +5,10 @@ info:
   version: 1.0.0
 
 servers:
-  - url: https://meeting-visualizer.vercel.app/api
-    description: Production
+  - url: https://meeting-visualizer-dev.example.com/api
+    description: AWS Development
+  - url: https://meeting-visualizer.example.com/api
+    description: AWS Production
   - url: http://localhost:3000/api
     description: Local development
 
@@ -119,6 +121,47 @@ paths:
                 format: binary
         '404':
           description: 画像が見つからない
+
+  /download:
+    get:
+      summary: 生成画像をZIPでダウンロード
+      parameters:
+        - name: jobId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: ZIPファイル
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: ジョブが見つからない
+        '400':
+          description: ジョブが未完了
+
+  /health:
+    get:
+      summary: ヘルスチェック
+      responses:
+        '200':
+          description: サービス正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  timestamp:
+                    type: string
+                    format: date-time
 
 components:
   schemas:
