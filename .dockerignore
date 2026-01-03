@@ -52,7 +52,21 @@ Thumbs.db
 *.tsbuildinfo
 .eslintcache
 
+# Infrastructure (not needed in app container)
+infra
+.terraform
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
 # Docker
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# CCAGI/Claude config
+.claude
+.claude-plugin
+.ai
+.ccagi.yml
+.worktrees
