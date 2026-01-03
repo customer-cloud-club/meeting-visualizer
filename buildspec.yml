@@ -5,7 +5,7 @@ version: 0.2
 
 env:
   secrets-manager:
-    GITHUB_TOKEN: "${PROJECT_NAME}-${ENVIRONMENT}-secrets:GITHUB_TOKEN"
+    GITHUB_TOKEN: "meeting-visualizer-dev-secrets:GITHUB_TOKEN"
 
 phases:
   pre_build:
