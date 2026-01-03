@@ -6,7 +6,7 @@ WORKDIR /app
 ARG GITHUB_TOKEN
 
 # Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 
 # Create .npmrc with token and install dependencies
 # Note: Using ARG for CodeBuild compatibility (BuildKit not required)
