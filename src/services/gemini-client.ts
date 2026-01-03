@@ -12,11 +12,12 @@ const MODEL_NAME = 'gemini-3-pro-image-preview';
 
 /**
  * APIキーからGenAIインスタンスを取得
+ * 優先順位: 1. クライアントから渡されたAPIキー 2. 環境変数 GEMINI_API_KEY
  */
 function getGenAI(apiKey?: string): GoogleGenerativeAI {
   const key = apiKey || process.env.GEMINI_API_KEY;
   if (!key) {
-    throw new Error('Gemini API key is required. Please set it in Settings.');
+    throw new Error('Gemini API key is not configured. Please contact administrator or set GEMINI_API_KEY environment variable.');
   }
   return new GoogleGenerativeAI(key);
 }
@@ -26,6 +27,8 @@ export interface ImageGenerationResult {
   imageData?: Buffer;
   mimeType?: string;
   error?: string;
+  isRateLimited?: boolean;
+  retryAfterMs?: number;
 }
 
 /**
@@ -155,9 +158,27 @@ export async function generateImage(
       error: 'No image in response',
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // 429 Rate Limit エラーの検出
+    const is429 = errorMessage.includes('429') ||
+                  errorMessage.includes('Too Many Requests') ||
+                  errorMessage.includes('quota');
+
+    // retryDelay の抽出（例: "Please retry in 36s"）
+    let retryAfterMs = 60000; // デフォルト60秒
+    const retryMatch = errorMessage.match(/retry in (\d+)(?:\.(\d+))?s/i);
+    if (retryMatch) {
+      const seconds = parseInt(retryMatch[1], 10);
+      const fraction = retryMatch[2] ? parseInt(retryMatch[2], 10) / Math.pow(10, retryMatch[2].length) : 0;
+      retryAfterMs = Math.ceil((seconds + fraction) * 1000);
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
+      isRateLimited: is429,
+      retryAfterMs: is429 ? retryAfterMs : undefined,
     };
   }
 }

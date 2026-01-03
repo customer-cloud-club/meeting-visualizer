@@ -7,8 +7,6 @@ import { generateImages, JobCancelledError } from '@/engines/image-generator';
 import { isJobCancelled } from '@/lib/job-store';
 import type { Job, CreateJobRequest } from '@/types/job';
 import type { AnalysisOptions } from '@/types/analysis';
-import fs from 'fs';
-import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
@@ -117,13 +115,8 @@ async function processJob(
       },
     });
 
-    // 出力ディレクトリを作成
-    const outputDir = path.join(process.cwd(), 'public', 'generated', jobId);
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    const images = await generateImages(yamlPrompts, { outputDir, jobId, apiKey }, (progress) => {
+    // S3に保存（outputDirは不要になったが、互換性のために空文字を渡す）
+    const images = await generateImages(yamlPrompts, { outputDir: '', jobId, apiKey }, (progress) => {
       updateJob(jobId, {
         progress: {
           current: progress.current,
@@ -132,7 +125,7 @@ async function processJob(
         },
         images: progress.images.map((img) => ({
           ...img,
-          filepath: `/generated/${jobId}/${path.basename(img.filepath)}`,
+          // filepathはS3キーがそのまま入っている
         })),
       });
     });
@@ -147,7 +140,7 @@ async function processJob(
       },
       images: images.map((img) => ({
         ...img,
-        filepath: `/generated/${jobId}/${path.basename(img.filepath)}`,
+        // filepathはS3キーがそのまま入っている
       })),
     });
   } catch (error) {

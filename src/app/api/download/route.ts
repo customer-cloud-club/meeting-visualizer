@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
+import { getImageFromS3 } from '@/lib/aws-clients';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,19 +17,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const generatedDir = path.join(process.cwd(), 'public', 'generated', jobId);
-    console.log('Generated dir:', generatedDir);
-
-    if (!fs.existsSync(generatedDir)) {
-      console.log('Directory not found:', generatedDir);
-      return NextResponse.json(
-        { error: '画像が見つかりません' },
-        { status: 404 }
-      );
-    }
-
     // ZIPファイルをPromiseで作成
-    const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+    const zipBuffer = await new Promise<Buffer>(async (resolve, reject) => {
       const archive = archiver('zip', {
         zlib: { level: 6 }
       });
@@ -50,24 +39,30 @@ export async function POST(request: NextRequest) {
         reject(err);
       });
 
-      // 画像をZIPに追加
+      // S3から画像を取得してZIPに追加
       let addedCount = 0;
       for (const image of images) {
-        const filename = path.basename(image.filepath);
-        const filepath = path.join(generatedDir, filename);
+        // filepathはS3キー（例: anonymous/jobId/imageId.png）
+        const s3Key = image.filepath;
 
-        console.log('Checking file:', filepath);
+        console.log('Fetching from S3:', s3Key);
 
-        if (fs.existsSync(filepath)) {
-          const safeTitle = (image.title || image.id)
-            .replace(/[\/\\:*?"<>|]/g, '_')
-            .substring(0, 50);
-          const ext = path.extname(filename);
-          archive.file(filepath, { name: `${safeTitle}${ext}` });
-          addedCount++;
-          console.log('Added to archive:', `${safeTitle}${ext}`);
-        } else {
-          console.log('File not found:', filepath);
+        try {
+          const result = await getImageFromS3(s3Key);
+
+          if (result) {
+            const safeTitle = (image.title || image.id)
+              .replace(/[\/\\:*?"<>|]/g, '_')
+              .substring(0, 50);
+            const ext = path.extname(s3Key) || '.png';
+            archive.append(result.buffer, { name: `${safeTitle}${ext}` });
+            addedCount++;
+            console.log('Added to archive:', `${safeTitle}${ext}`);
+          } else {
+            console.log('Image not found in S3:', s3Key);
+          }
+        } catch (fetchError) {
+          console.error('Failed to fetch from S3:', s3Key, fetchError);
         }
       }
 
