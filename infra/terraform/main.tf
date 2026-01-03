@@ -460,6 +460,14 @@ resource "aws_ecs_task_definition" "main" {
       }
     }
 
+    healthCheck = {
+      command     = ["CMD-SHELL", "/usr/bin/wget -4 -q --spider http://127.0.0.1:3000/api/health || exit 1"]
+      interval    = 30
+      timeout     = 10
+      retries     = 3
+      startPeriod = 90
+    }
+
     essential = true
   }])
 }
