@@ -10,7 +10,8 @@ interface ImageGalleryProps {
 }
 
 const getImageUrl = (filepath: string) => {
-  const cleanPath = filepath.replace(/^\/+/, '');
+  // filepathはS3キー（例: anonymous/jobId/imageId.png）またはレガシーパス
+  const cleanPath = filepath.replace(/^\/+/, '').replace(/^generated\//, '');
   return `/api/images/serve?path=${encodeURIComponent(cleanPath)}`;
 };
 

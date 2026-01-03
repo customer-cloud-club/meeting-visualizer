@@ -1,0 +1,44 @@
+version: 0.2
+
+# Meeting Visualizer - CodeBuild Test Spec
+# Lint, 型チェック, 単体テストを実行
+
+env:
+  secrets-manager:
+    GITHUB_TOKEN: "${PROJECT_NAME}-${ENVIRONMENT}-secrets:GITHUB_TOKEN"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo Installing dependencies...
+      - npm ci
+
+  pre_build:
+    commands:
+      - echo Running pre-build checks...
+
+  build:
+    commands:
+      - echo Running lint...
+      - npm run lint
+      - echo Running type check...
+      - npm run typecheck
+      - echo Running unit tests...
+      - npm test -- --run
+
+  post_build:
+    commands:
+      - echo All tests passed!
+
+reports:
+  test-reports:
+    files:
+      - 'coverage/clover.xml'
+    file-format: CLOVERXML
+
+cache:
+  paths:
+    - 'node_modules/**/*'
+    - '/root/.npm/**/*'

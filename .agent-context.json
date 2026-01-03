@@ -1,0 +1,60 @@
+{
+  "agentStatus": "idle",
+  "agentType": "CCAGIAgent",
+  "config": {
+    "useTaskTool": false,
+    "useWorktree": true,
+    "externalDependencies": {
+      "anthropic_api": true,
+      "github_api": true,
+      "aws_api": true,
+      "external_npm": false
+    }
+  },
+  "promptPath": ".claude-plugin/agents/coordinator.md",
+  "task": null,
+  "system": {
+    "name": "CCAGI",
+    "version": "1.0.0",
+    "description": "Customer Cloud AGI - 完全自律型AIエージェントシステム"
+  },
+  "deployment": {
+    "database": {
+      "detection": {
+        "triggers": [
+          "DATABASE_URL in .env.example",
+          "prisma/schema.prisma exists",
+          "@prisma/client in package.json"
+        ]
+      },
+      "strategies": {
+        "sidecar": {
+          "description": "PostgreSQL container in same ECS task",
+          "environments": ["development", "staging"],
+          "connection": "localhost:5432",
+          "persistence": "ephemeral",
+          "cost": "none"
+        },
+        "rds": {
+          "description": "AWS RDS managed PostgreSQL",
+          "environments": ["production"],
+          "connection": "{rds_endpoint}:5432",
+          "persistence": "persistent",
+          "cost": "~$15/month (db.t3.micro)"
+        },
+        "external": {
+          "description": "External managed DB (Neon, Supabase, etc.)",
+          "environments": ["any"],
+          "connection": "from DATABASE_URL env",
+          "persistence": "persistent",
+          "cost": "varies"
+        }
+      },
+      "defaultByEnvironment": {
+        "development": "sidecar",
+        "staging": "sidecar",
+        "production": "rds"
+      }
+    }
+  }
+}

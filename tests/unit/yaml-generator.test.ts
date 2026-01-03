@@ -56,7 +56,7 @@ describe('yaml-generator', () => {
     it('should include Japanese text labels', () => {
       const prompts = generateYAMLPrompts(mockAnalysis);
 
-      expect(prompts[0].prompt).toContain('JAPANESE TEXT LABELS');
+      expect(prompts[0].prompt).toContain('TEXT LABELS (MUST INCLUDE)');
       expect(prompts[0].prompt).toContain('テストトピック');
     });
 

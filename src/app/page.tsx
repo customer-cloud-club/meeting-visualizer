@@ -50,20 +50,14 @@ export default function Home() {
     setProgress({ current: 0, total: 0, currentStep: t('progressStarting') });
     setCurrentJobId(null);
 
-    // Get API key from localStorage
+    // Get API key from localStorage (optional - server may have its own)
     const apiKey = getStoredApiKey();
-    if (!apiKey) {
-      setError(t('errorApiKeyMissing'));
-      setIsProcessing(false);
-      setIsSettingsOpen(true);
-      return;
-    }
 
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, options, apiKey }),
+        body: JSON.stringify({ text, options, ...(apiKey && { apiKey }) }),
       });
 
       if (!response.ok) {

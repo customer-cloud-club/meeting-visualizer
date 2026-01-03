@@ -1,0 +1,524 @@
+{
+  "mcpServers": {
+    "aws-core": {
+      "command": "uvx",
+      "args": [
+        "awslabs.core-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": true,
+      "description": "AWS Core MCP - 統合AWSサービスアクセス (AWS_PROFILE設定後に有効化)"
+    },
+    "aws-documentation": {
+      "command": "uvx",
+      "args": [
+        "awslabs.aws-documentation-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "description": "AWS Documentation - AWSドキュメント検索・参照"
+    },
+    "aws-cdk": {
+      "command": "uvx",
+      "args": [
+        "awslabs.cdk-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": true,
+      "description": "AWS CDK MCP - Infrastructure as Code (AWS_PROFILE設定後に有効化)"
+    },
+    "aws-cloudformation": {
+      "command": "uvx",
+      "args": [
+        "awslabs.cfn-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": true,
+      "description": "AWS CloudFormation MCP - スタック管理 (AWS_PROFILE設定後に有効化)"
+    },
+    "aws-lambda": {
+      "command": "uvx",
+      "args": [
+        "awslabs.lambda-tool-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": true,
+      "description": "AWS Lambda MCP - Lambda関数管理・実行 (AWS_PROFILE設定後に有効化)"
+    },
+    "aws-bedrock-kb": {
+      "command": "uvx",
+      "args": [
+        "awslabs.bedrock-kb-retrieval-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": true,
+      "description": "Amazon Bedrock Knowledge Bases - RAG検索 (AWS_PROFILE設定後に有効化)"
+    },
+    "aws-s3": {
+      "command": "uvx",
+      "args": [
+        "awslabs.s3-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": true,
+      "description": "Amazon S3 MCP - オブジェクトストレージ操作 (AWS_PROFILE設定後に有効化)"
+    },
+    "aws-dynamodb": {
+      "command": "uvx",
+      "args": [
+        "awslabs.dynamodb-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "DDB_MCP_READONLY": "false"
+      },
+      "disabled": true,
+      "description": "Amazon DynamoDB MCP - NoSQLデータベース操作 (AWS_PROFILE設定後に有効化)"
+    },
+    "aws-ecs": {
+      "command": "uvx",
+      "args": [
+        "awslabs.ecs-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": true,
+      "description": "Amazon ECS MCP - コンテナサービス管理 (AWS_PROFILE設定後に有効化)"
+    },
+    "aws-eks": {
+      "command": "uvx",
+      "args": [
+        "awslabs.eks-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": true,
+      "description": "Amazon EKS MCP - Kubernetes管理 (AWS_PROFILE設定後に有効化)"
+    },
+    "lark-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@larksuiteoapi/lark-mcp",
+        "mcp",
+        "-a",
+        "${LARK_APP_ID}",
+        "-s",
+        "${LARK_APP_SECRET}"
+      ],
+      "env": {
+        "LARK_APP_ID": "${LARK_APP_ID}",
+        "LARK_APP_SECRET": "${LARK_APP_SECRET}"
+      },
+      "disabled": true,
+      "description": "Lark/Feishu MCP - メッセージ・ドキュメント・Bitable操作 (LARK_APP_ID設定後に有効化)"
+    },
+    "ide-integration": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/ide-integration.js"
+      ],
+      "disabled": false,
+      "description": "VS Code diagnostics and Jupyter execution integration"
+    },
+    "github-enhanced": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/github-enhanced.js"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+        "REPOSITORY": "${REPOSITORY}"
+      },
+      "disabled": true,
+      "description": "Enhanced GitHub operations for Issue/PR management (GITHUB_TOKEN, REPOSITORY設定後に有効化)"
+    },
+    "project-context": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/project-context.js"
+      ],
+      "disabled": false,
+      "description": "Project-specific context and dependency information"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ],
+      "disabled": false,
+      "description": "Filesystem access for project files"
+    },
+    "context-engineering": {
+      "command": "node",
+      "args": [
+        "external/context-engineering-mcp/mcp-server/index.js"
+      ],
+      "env": {
+        "AI_GUIDES_API_URL": "http://localhost:8888"
+      },
+      "disabled": true,
+      "description": "Context Engineering - AI-powered context analysis (要ローカルサーバー起動)"
+    },
+    "ccagi-core": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/ccagi-core.js"
+      ],
+      "disabled": false,
+      "description": "CCAGI Core - 自律型AIエージェントシステム（ローカル完結型）",
+      "tools": {
+        "ccagi__status": {
+          "description": "プロジェクト状態確認",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "verbose": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          }
+        },
+        "ccagi__agent_run": {
+          "description": "Agent実行",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "task": {
+                "type": "string",
+                "description": "タスク説明"
+              },
+              "issueNumber": {
+                "type": "number",
+                "description": "Issue番号"
+              },
+              "dryRun": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "required": [
+              "task"
+            ]
+          }
+        },
+        "ccagi__todos": {
+          "description": "TODOコメント検出",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "default": "./src"
+              }
+            }
+          }
+        },
+        "ccagi__config": {
+          "description": "設定管理",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "show",
+                  "validate"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "dev3000": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "dev3000",
+        "--mcp"
+      ],
+      "disabled": false,
+      "description": "dev3000 - UI/UX統合デバッグツール"
+    },
+    "coordinator-agent": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/coordinator-agent.js"
+      ],
+      "disabled": false,
+      "description": "CoordinatorAgent - タスク統括・並行実行制御・依存関係解決"
+    },
+    "ccagi-integration": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/ccagi-integration.js"
+      ],
+      "disabled": false,
+      "description": "CCAGI Integration - CLI統合MCPサーバー（Ccagi完全互換 + CCAGI独自機能）"
+    },
+    "ccagi-llm": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/ccagi-llm.js"
+      ],
+      "env": {
+        "STARBOSE_BASE_URL": "http://69.5.22.110/v1",
+        "STARBOSE_MODEL": "openai/gpt-oss-120b"
+      },
+      "disabled": false,
+      "description": "CCAGI LLM - ローカルLLM（Starbose）統合MCPサーバー",
+      "tools": {
+        "llm__chat": {
+          "description": "Starbose LLMにチャットリクエストを送信"
+        },
+        "llm__complete": {
+          "description": "テキスト補完を実行"
+        },
+        "llm__code_generate": {
+          "description": "コード生成に特化したLLM呼び出し"
+        },
+        "llm__analyze": {
+          "description": "コード解析・レビュー"
+        },
+        "llm__status": {
+          "description": "LLM接続状態確認"
+        }
+      }
+    },
+    "ccagi-society": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/ccagi-society.js"
+      ],
+      "disabled": false,
+      "description": "CCAGI Society - 26 Societies管理・θ₃ Allocator・Society間通信",
+      "tools": {
+        "society_health_all": {
+          "description": "全26 Societyの健全性を一括チェック"
+        },
+        "society_health_single": {
+          "description": "単一Societyの詳細健全性をチェック"
+        },
+        "society_agent_status": {
+          "description": "Society内のエージェント状態を取得"
+        },
+        "society_mcp_status": {
+          "description": "Society関連のMCPサーバー接続状態を確認"
+        },
+        "society_metrics_summary": {
+          "description": "Society全体の集約メトリクスを取得"
+        },
+        "metrics_collect": {
+          "description": "Societyからメトリクスを収集"
+        },
+        "metrics_aggregate": {
+          "description": "メトリクスを期間で集計"
+        },
+        "metrics_query": {
+          "description": "柔軟なメトリクスクエリ"
+        },
+        "metrics_export": {
+          "description": "メトリクスをJSON/CSV形式でエクスポート"
+        },
+        "metrics_dashboard": {
+          "description": "ダッシュボード用の集約データを取得"
+        },
+        "bridge_send": {
+          "description": "Society間でメッセージを送信"
+        },
+        "bridge_receive": {
+          "description": "Societyのメッセージキューを受信"
+        },
+        "bridge_context_share": {
+          "description": "Society間でコンテキストを共有"
+        },
+        "bridge_context_get": {
+          "description": "共有コンテキストを取得"
+        },
+        "bridge_queue_status": {
+          "description": "メッセージキューの状態を確認"
+        },
+        "bridge_history": {
+          "description": "Society間通信履歴を取得"
+        },
+        "context_store": {
+          "description": "コンテキストを保存"
+        },
+        "context_get": {
+          "description": "コンテキストを取得"
+        },
+        "context_list": {
+          "description": "コンテキスト一覧を取得"
+        },
+        "context_expire": {
+          "description": "期限切れコンテキストを削除"
+        },
+        "context_share": {
+          "description": "コンテキストの共有設定を変更"
+        },
+        "context_search": {
+          "description": "コンテキストを検索"
+        },
+        "society_select": {
+          "description": "タスクに基づいて最適なSocietyを選択 (θ₃ Allocator)"
+        }
+      }
+    },
+    "ccagi-tools": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/ccagi-tools.js"
+      ],
+      "disabled": false,
+      "description": "CCAGI Tools - 172個の統合DevOps/インフラツール (Git/Docker/K8s/DB/Network/Process/Resource/File/Log/Tmux/GitHub/Spec-Kit/Utilities)"
+    },
+    "ccagi-agents": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/ccagi-agents.js"
+      ],
+      "disabled": false,
+      "description": "CCAGI Agents - エージェント管理・コマンド実行・オーケストレーション (27 Agents, 56 Commands)",
+      "tools": {
+        "agent_list": {
+          "description": "利用可能なエージェント一覧を取得"
+        },
+        "agent_info": {
+          "description": "エージェントの詳細情報を取得"
+        },
+        "agent_run": {
+          "description": "エージェントを実行"
+        },
+        "agent_status": {
+          "description": "エージェント実行状態を確認"
+        },
+        "agent_complete": {
+          "description": "エージェントタスクを完了としてマーク"
+        },
+        "command_list": {
+          "description": "利用可能なコマンド一覧を取得"
+        },
+        "command_info": {
+          "description": "コマンドの詳細情報を取得"
+        },
+        "command_execute": {
+          "description": "コマンドを実行"
+        },
+        "orchestrate_workflow": {
+          "description": "ワークフローを実行"
+        },
+        "context_save": {
+          "description": "共有コンテキストを保存"
+        },
+        "context_load": {
+          "description": "共有コンテキストを読み込み"
+        },
+        "agent_select": {
+          "description": "タスクに最適なエージェントを推奨"
+        },
+        "agents_summary": {
+          "description": "エージェント・コマンドのサマリー情報"
+        }
+      }
+    },
+    "ccagi-universe": {
+      "command": "node",
+      "args": [
+        ".claude/mcp-servers/ccagi-universe.js"
+      ],
+      "disabled": false,
+      "description": "CCAGI Universe - 複数プロジェクト統括・θ₃ Universe Allocator・Cross-Project Communication",
+      "tools": {
+        "universe_register": {
+          "description": "プロジェクトをUniverseに登録"
+        },
+        "universe_list": {
+          "description": "登録済みプロジェクト一覧"
+        },
+        "universe_get": {
+          "description": "プロジェクト詳細を取得"
+        },
+        "universe_update": {
+          "description": "プロジェクト情報を更新"
+        },
+        "universe_unregister": {
+          "description": "プロジェクトをUniverseから削除"
+        },
+        "allocator_request": {
+          "description": "リソース割り当てをリクエスト (θ₃)"
+        },
+        "allocator_release": {
+          "description": "リソース割り当てを解放"
+        },
+        "allocator_status": {
+          "description": "リソース割り当て状況を確認"
+        },
+        "allocator_optimize": {
+          "description": "リソース配分を最適化 (θ₃ Rebalancing)"
+        },
+        "context_global_set": {
+          "description": "グローバルコンテキストを設定"
+        },
+        "context_global_get": {
+          "description": "グローバルコンテキストを取得"
+        },
+        "context_global_list": {
+          "description": "グローバルコンテキスト一覧"
+        },
+        "universe_broadcast": {
+          "description": "全プロジェクトにブロードキャスト"
+        },
+        "universe_send": {
+          "description": "特定プロジェクトにメッセージ送信"
+        },
+        "universe_receive": {
+          "description": "プロジェクトのメッセージを受信"
+        },
+        "universe_status": {
+          "description": "Universe全体の状態を取得"
+        },
+        "universe_discover": {
+          "description": "ローカルのCCAGIプロジェクトを検出"
+        }
+      }
+    }
+  }
+}

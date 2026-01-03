@@ -169,3 +169,12 @@ yarn-error.log*
 
 # Generated images
 public/generated/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Test reports
+playwright-report/
+test-results/

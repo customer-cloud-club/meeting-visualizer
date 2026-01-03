@@ -1,0 +1,309 @@
+# CCAGI Configuration v1.0
+# Customer Cloud AGI - 完全自律型AIエージェントシステム
+# 外部通信リスクを排除し、ローカル完結型で動作
+
+project_name: ccagi-system
+version: "1.0.0"
+description: "CCAGI - Customer Cloud AGI System"
+
+# ========================================
+# 外部依存設定
+# ========================================
+external_dependencies:
+  # 保持（害がないため）
+  anthropic_api: enabled    # Claude API使用
+  github_api: enabled       # GitHub連携
+  aws_api: enabled          # AWS MCP統合（IAM認証で保護）
+  starbose_llm: enabled     # Starbose LLM（ローカル）
+
+  # 外部MCPサーバー
+  external_mcp: enabled     # awslabs MCP servers等
+
+# ========================================
+# AWS環境設定
+# ========================================
+aws:
+  environments:
+    development:
+      name: "共通開発環境"
+      account_id: "805673386383"
+      profile: "dev-shared-infra"
+      region: "ap-northeast-1"
+      alias: "ai-products"
+      # ECS共通インフラ
+      ecs_cluster: "ai-products-dev"
+      vpc_id: "vpc-06e281e4410c97bf9"
+      # Database Strategy: sidecar (PostgreSQL container in same task)
+      database:
+        strategy: "sidecar"
+        engine: "postgres:15-alpine"
+        persistence: "ephemeral"  # Data lost on task restart (OK for dev)
+
+    production:
+      name: "共通本番環境"
+      account_id: "661103479219"
+      profile: "prod-shared-infra"
+      region: "ap-northeast-1"
+      alias: "ai-factory-prod"
+      # ECS共通インフラ
+      ecs_cluster: "ai-products-prod"
+      # Database Strategy: RDS (managed PostgreSQL)
+      database:
+        strategy: "rds"
+        engine: "postgres"
+        engine_version: "15.4"
+        instance_class: "db.t3.micro"
+        storage_gb: 20
+        multi_az: false
+        backup_retention_days: 7
+        deletion_protection: true
+
+    management:
+      name: "Management"
+      account_id: "211234825975"
+      profile: "management"
+      region: "us-west-2"
+
+  default_environment: development
+
+# ========================================
+# Database Strategy Reference
+# ========================================
+# Determines how apps with database requirements are deployed:
+#
+# strategy: "sidecar"
+#   - PostgreSQL runs as container in same ECS task
+#   - Connection via localhost:5432
+#   - Data is ephemeral (lost on restart)
+#   - Best for: dev/demo environments
+#   - Cost: No additional cost
+#
+# strategy: "rds"
+#   - AWS RDS managed PostgreSQL
+#   - Connection via RDS endpoint
+#   - Data is persistent with backups
+#   - Best for: production environments
+#   - Cost: ~$15+/month (db.t3.micro)
+
+# ========================================
+# LLM設定
+# ========================================
+llm:
+  default_provider: starbose  # デフォルトプロバイダー
+
+  providers:
+    starbose:
+      base_url: "http://69.5.22.110/v1"
+      model: "openai/gpt-oss-120b"
+      max_tokens: 4096
+      temperature: 0.7
+      description: "ローカルLLM - Starbose (GPT-OSS 120B)"
+
+    openai:
+      base_url: "https://api.openai.com/v1"
+      model: "gpt-4"
+      max_tokens: 4096
+      temperature: 0.7
+      api_key_env: "OPENAI_API_KEY"
+
+    anthropic:
+      model: "claude-sonnet-4-20250514"
+      max_tokens: 8000
+      api_key_env: "ANTHROPIC_API_KEY"
+      description: "Claude Code経由で使用"
+
+# ========================================
+# GitHub設定
+# ========================================
+github:
+  repository: "ccagi-system"
+  default_branch: "main"
+  auto_label: true
+  auto_assign: true
+  draft_pr: true
+
+# ========================================
+# プロジェクト構造
+# ========================================
+project:
+  language: "TypeScript"
+  framework: "Node.js"
+  testing: "Vitest"
+  package_manager: "npm"
+
+  directories:
+    src: "./.claude/mcp-servers"
+    agents: "./.claude-plugin/agents"
+    commands: "./.claude/commands"
+    docs: "./docs"
+
+# ========================================
+# エージェント設定
+# ========================================
+agents:
+  enabled: true
+  use_worktree: true
+  worktree_base_path: ".worktrees"
+
+  # CoordinatorAgent - タスク統括
+  coordinator_agent:
+    enabled: true
+    dag_based: true
+    parallel_execution: true
+    max_parallel_tasks: 3
+    uses_anthropic: true
+    uses_github: true
+
+  # CodeGenAgent - AI駆動コード生成
+  codegen_agent:
+    enabled: true
+    model: "claude-sonnet-4"
+    strict_mode: true
+    auto_format: true
+    auto_lint: true
+    uses_anthropic: true
+
+  # SecurityAgent - セキュリティ統括
+  security_agent:
+    enabled: true
+    min_score: 80
+    fail_on_critical: true
+    fail_on_high: true
+    owasp_top10_check: true
+    uses_github: true
+    # AWS関連は除外
+    tools:
+      - "npm audit"
+      - "eslint-plugin-security"
+
+  # ReviewAgent - 品質評価
+  review_agent:
+    enabled: true
+    min_score: 80
+    static_analysis: true
+    code_review: true
+    uses_anthropic: true
+
+  # PRAgent - PR自動作成
+  pr_agent:
+    enabled: true
+    draft_mode: true
+    auto_metrics: true
+    conventional_commits: true
+    uses_github: true
+
+# ========================================
+# 品質基準
+# ========================================
+quality:
+  code:
+    typescript_strict: true
+    eslint_errors: 0
+    eslint_warnings_max: 0
+    dry_principle: true
+    max_function_length: 50
+    max_file_length: 300
+
+  testing:
+    min_coverage: 80
+    unit_tests: true
+    integration_tests: true
+
+  security:
+    min_score: 80
+    owasp_top10: true
+    xss_protection: true
+    sql_injection_protection: true
+    no_hardcoded_secrets: true
+
+# ========================================
+# メトリクス
+# ========================================
+metrics:
+  required:
+    - name: "TypeScript型エラー"
+      command: "npm run typecheck"
+      threshold: 0
+      operator: "=="
+
+    - name: "ビルド"
+      command: "npm run build"
+      must_succeed: true
+
+    - name: "テスト"
+      command: "npm test"
+      must_succeed: true
+
+# ========================================
+# 自動判断ルール
+# ========================================
+auto_rules:
+  constraints:
+    - "TypeScript strict modeを維持"
+    - "環境変数は.env.exampleに記載"
+
+  priority:
+    bug_fix: "P1-High"
+    security: "P0-Critical"
+    feature: "P2-Medium"
+    refactoring: "P3-Low"
+
+# ========================================
+# 作業フロー
+# ========================================
+workflow:
+  steps:
+    - name: "タスク分解"
+      agent: "CoordinatorAgent"
+      required: true
+
+    - name: "実装"
+      agent: "CodeGenAgent"
+      required: true
+
+    - name: "セキュリティチェック"
+      agent: "SecurityAgent"
+      required: true
+      min_score: 80
+
+    - name: "品質チェック"
+      agent: "ReviewAgent"
+      required: true
+      min_score: 80
+
+    - name: "PR作成"
+      agent: "PRAgent"
+      required: true
+      draft: true
+
+# ========================================
+# ログ・レポート
+# ========================================
+logging:
+  level: "info"
+  directory: "./logs"
+  format: "json"
+
+# ========================================
+# 高度な設定
+# ========================================
+advanced:
+  parallel_processing:
+    enabled: true
+    max_workers: 3
+
+  cache:
+    enabled: true
+    directory: "./.ccagi-cache"
+    ttl: "24h"
+
+  retry:
+    max_attempts: 3
+    backoff: "exponential"
+    initial_delay: "5s"
+
+  timeout:
+    code_generation: "30m"
+    testing: "20m"
+    security_scan: "15m"
+    review: "10m"
