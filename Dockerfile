@@ -9,10 +9,9 @@ ARG GITHUB_TOKEN
 COPY package.json package-lock.json* ./
 
 # Create .npmrc with token and install dependencies
-RUN --mount=type=secret,id=github_token \
-    echo "@customer-cloud-club:registry=https://npm.pkg.github.com" > .npmrc && \
-    GITHUB_TOKEN=$(cat /run/secrets/github_token 2>/dev/null || echo "${GITHUB_TOKEN}") && \
-    echo "//npm.pkg.github.com/:_authToken=$GITHUB_TOKEN" >> .npmrc && \
+# Note: Using ARG for CodeBuild compatibility (BuildKit not required)
+RUN echo "@customer-cloud-club:registry=https://npm.pkg.github.com" > .npmrc && \
+    echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> .npmrc && \
     npm ci && \
     rm -f .npmrc
 
