@@ -9,10 +9,20 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.962.0",
+    "@aws-sdk/client-s3": "^3.962.0",
+    "@aws-sdk/lib-dynamodb": "^3.962.0",
+    "@customer-cloud-club/platform-sdk": "^1.4.1",
     "@google/generative-ai": "^0.24.1",
+    "amazon-cognito-identity-js": "^6.3.16",
     "archiver": "^7.0.1",
     "next": "^14.2.35",
     "react": "^18.3.1",
@@ -20,12 +30,14 @@
     "uuid": "^11.0.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@types/archiver": "^7.0.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.20",
+    "playwright": "^1.57.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",

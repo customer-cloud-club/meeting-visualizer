@@ -2,9 +2,19 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
+# GitHub token for private packages
+ARG GITHUB_TOKEN
+
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN npm ci
+
+# Create .npmrc with token and install dependencies
+RUN --mount=type=secret,id=github_token \
+    echo "@customer-cloud-club:registry=https://npm.pkg.github.com" > .npmrc && \
+    GITHUB_TOKEN=$(cat /run/secrets/github_token 2>/dev/null || echo "${GITHUB_TOKEN}") && \
+    echo "//npm.pkg.github.com/:_authToken=$GITHUB_TOKEN" >> .npmrc && \
+    npm ci && \
+    rm -f .npmrc
 
 # Stage 2: Build the application
 FROM node:20-alpine AS builder
