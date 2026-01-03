@@ -37,13 +37,15 @@
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Storage                                  │
+│                         AWS Storage                              │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │  /tmp/jobs/{jobId}/                                       │   │
-│  │    ├── input.txt        (入力テキスト)                     │   │
-│  │    ├── structured.json  (構造化データ)                     │   │
-│  │    ├── prompts/         (YAMLプロンプト)                   │   │
-│  │    └── images/          (生成画像)                         │   │
+│  │  Amazon S3 (meeting-visualizer-images-dev)                │   │
+│  │    └── {userId}/{jobId}/{imageId}.png                    │   │
+│  ├──────────────────────────────────────────────────────────┤   │
+│  │  DynamoDB (meeting-visualizer-images)                     │   │
+│  │    PK: USER#{userId}                                      │   │
+│  │    SK: JOB#{jobId}#IMAGE#{imageId}                        │   │
+│  │    Attributes: s3Key, title, size, mimeType, createdAt   │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -104,13 +106,21 @@ visual_communication_format:
 
 ### 3. Image Generator Engine
 
-**役割**: YAMLプロンプトを使用してGemini APIで画像生成
+**役割**: YAMLプロンプトを使用してGemini APIで画像生成、S3に保存
 
 **入力**: YAMLプロンプト
-**出力**: 画像ファイル（PNG/JPG）
+**出力**: S3に保存された画像（PNG/JPG）
 
 **使用API**: Gemini API
 **モデル**: `gemini-3-pro-image-preview`
+
+**レート制限対策**:
+- 順次処理（同時リクエストなし）
+- デフォルト待機時間: 10秒
+- 最大リトライ回数: 6回
+- 指数バックオフ（ジッター付き）
+- 連続レート制限時の追加待機（最大60秒）
+
 **設定**:
 ```javascript
 {
@@ -119,6 +129,14 @@ visual_communication_format:
     responseModalities: ['image', 'text']
   }
 }
+```
+
+**S3保存フロー**:
+```
+1. Gemini APIで画像生成
+2. S3にアップロード（key: {userId}/{jobId}/{imageId}.{ext}）
+3. DynamoDBにメタデータ保存
+4. 結果をクライアントに返却
 ```
 
 ### 4. API Layer
@@ -197,25 +215,31 @@ visual_communication_format:
 | 項目 | 選定 | 理由 |
 |------|------|------|
 | Framework | Next.js 14 (App Router) | フルスタック、API Routes、React Server Components |
-| UI | Tailwind CSS + shadcn/ui | 高速開発、美しいデザイン |
-| State | Zustand | シンプル、軽量 |
-| AI (Text) | Claude API | 高品質なテキスト分析 |
-| AI (Image) | Gemini API | Nano Banana Pro対応、日本語テキスト描画 |
-| Deploy | Vercel | Next.jsとの親和性、Edge Functions |
+| UI | Tailwind CSS | 高速開発、美しいデザイン |
+| AI (Text) | Gemini 3 Pro | テキスト分析と画像生成を統一 |
+| AI (Image) | Gemini 3 Pro Image | Nano Banana Pro対応、日本語テキスト描画 |
+| Storage | Amazon S3 | スケーラブルな画像保存 |
+| Database | DynamoDB | 高速なメタデータ管理 |
+| Deploy | AWS ECS Fargate | コンテナベース、オートスケール |
+| IaC | Terraform | インフラのコード化 |
 
 ## 環境変数
 
 ```env
 # AI APIs
-ANTHROPIC_API_KEY=sk-ant-...
 GEMINI_API_KEY=AIza...
 
+# AWS
+AWS_REGION=ap-northeast-1
+S3_IMAGE_BUCKET=meeting-visualizer-images-dev
+DYNAMODB_IMAGE_TABLE=meeting-visualizer-images
+
 # App
-NEXT_PUBLIC_APP_URL=https://meeting-visualizer.vercel.app
+NEXT_PUBLIC_APP_URL=https://meeting-visualizer-dev-alb-xxx.ap-northeast-1.elb.amazonaws.com
 
 # Optional
 RATE_LIMIT_PER_MINUTE=10
-MAX_INPUT_LENGTH=50000
+MAX_INPUT_LENGTH=200000
 ```
 
 ## セキュリティ考慮
@@ -274,13 +298,26 @@ meeting-visualizer/
     └── images/
 ```
 
-## 次のステップ
+## 実装状況
 
 1. [x] アーキテクチャ設計（本ドキュメント）
-2. [ ] テキスト分析エンジン実装
-3. [ ] YAML生成エンジン実装
-4. [ ] 画像生成エンジン実装
-5. [ ] フロントエンド実装
-6. [ ] API実装
-7. [ ] テスト
-8. [ ] デプロイ
+2. [x] テキスト分析エンジン実装
+3. [x] YAML生成エンジン実装
+4. [x] 画像生成エンジン実装（レート制限対策済み）
+5. [x] フロントエンド実装
+6. [x] API実装
+7. [x] S3/DynamoDB統合
+8. [x] テスト（40テスト合格）
+9. [x] AWS ECSデプロイ
+
+## 改善履歴
+
+### v1.1.0 (2026-01-03)
+- Gemini APIレート制限対策強化
+- S3/DynamoDBアーキテクチャ移行
+- E2Eテスト追加
+
+### v1.0.0 (2025-12-31)
+- 初回リリース
+- Docker化
+- i18n対応
