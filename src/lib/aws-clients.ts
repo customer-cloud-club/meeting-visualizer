@@ -10,7 +10,8 @@ import { Readable } from 'stream';
 
 // 環境変数
 const AWS_REGION = process.env.AWS_REGION || 'ap-northeast-1';
-const S3_BUCKET = process.env.S3_IMAGE_BUCKET || 'meeting-visualizer-images-dev';
+const ENV_SUFFIX = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
+const S3_BUCKET = process.env.S3_IMAGE_BUCKET || `meeting-visualizer-images-${ENV_SUFFIX}`;
 const DYNAMODB_TABLE = process.env.DYNAMODB_IMAGE_TABLE || 'meeting-visualizer-images';
 
 // S3クライアント
