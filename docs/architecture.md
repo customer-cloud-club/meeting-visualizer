@@ -111,8 +111,14 @@ visual_communication_format:
 **入力**: YAMLプロンプト
 **出力**: S3に保存された画像（PNG/JPG）
 
-**使用API**: Gemini API
-**モデル**: `gemini-3-pro-image-preview`
+**使用API**: Vertex AI (Google Cloud)
+**モデル**: `gemini-3-pro-image-preview` (Nano Banana Pro)
+**リージョン**: `global` （グローバルリージョン必須）
+**認証**: サービスアカウント認証 (`GOOGLE_SERVICE_ACCOUNT_KEY`)
+
+> **重要**: Gemini 3 Pro Image は Vertex AI のグローバルリージョンでのみ利用可能。
+> `us-central1` などの特定リージョンでは404エラーになります。
+> 参考: https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-pro-image
 
 **レート制限対策**:
 - 順次処理（同時リクエストなし）
@@ -311,6 +317,11 @@ meeting-visualizer/
 9. [x] AWS ECSデプロイ
 
 ## 改善履歴
+
+### v1.2.0 (2026-01-04)
+- Gemini 3 Pro Image: グローバルリージョン対応
+- Vertex AI認証をサービスアカウント認証に統一
+- ドキュメント整備（リージョン要件追記）
 
 ### v1.1.0 (2026-01-03)
 - Gemini APIレート制限対策強化

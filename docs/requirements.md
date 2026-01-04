@@ -73,11 +73,16 @@ interface Topic {
 #### 2.1.3 画像生成機能
 | 項目 | 仕様 |
 |------|------|
-| 使用AI | Gemini API (gemini-3-pro-image-preview) |
+| 使用AI | Gemini API (gemini-3-pro-image-preview) via Vertex AI |
+| **リージョン** | **`global`（グローバルリージョン必須）** |
 | 出力形式 | PNG/JPEG |
 | 画像スタイル | 手描き風インフォグラフィック（グラフィックレコーディング風） |
 | 生成枚数 | 1-12枚（ユーザー指定可能、デフォルト8枚） |
 | 処理時間目標 | 1枚あたり15秒以内 |
+
+> **重要**: Gemini 3 Pro Image (`gemini-3-pro-image-preview`) は Vertex AI のグローバルリージョン（`location: 'global'`）でのみ利用可能です。`us-central1` などの特定リージョンでは404エラーになります。
+>
+> 参考: https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-pro-image
 
 **画像スタイルオプション:**
 | スタイル | 説明 |
@@ -550,6 +555,7 @@ npm run test:e2e
 |----|------|----------|--------|
 | 1.0 | 2026-01-02 | 初版作成 | Claude Code |
 | 1.1 | 2026-01-03 | AWS環境URL追加、APIキー設定をサーバーサイド優先に変更 | Claude Code |
+| 1.2 | 2026-01-04 | Gemini 3 Pro Imageのグローバルリージョン要件を追記 | Claude Code |
 
 ---
 
