@@ -1,5 +1,6 @@
 # Stage 1: Install dependencies
-FROM node:20-alpine AS deps
+# Use ECR Public Gallery to avoid Docker Hub rate limits
+FROM public.ecr.aws/docker/library/node:20-alpine AS deps
 WORKDIR /app
 
 # GitHub token for private packages
@@ -16,7 +17,7 @@ RUN echo "@customer-cloud-club:registry=https://npm.pkg.github.com" > .npmrc && 
     rm -f .npmrc
 
 # Stage 2: Build the application
-FROM node:20-alpine AS builder
+FROM public.ecr.aws/docker/library/node:20-alpine AS builder
 WORKDIR /app
 
 # Copy dependencies from deps stage
@@ -31,7 +32,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # Stage 3: Production runtime
-FROM node:20-alpine AS runner
+FROM public.ecr.aws/docker/library/node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
