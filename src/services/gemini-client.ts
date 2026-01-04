@@ -1,10 +1,13 @@
 /**
  * Gemini API クライアント
  *
- * 画像生成認証方式（優先順位）:
- * 1. GEMINI_API_KEY - Google AI Studio APIキー（優先）
- * 2. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI サービスアカウント
+ * 認証方式（優先順位）:
+ * 1. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI サービスアカウント（本番用・優先）
+ * 2. GEMINI_API_KEY - Google AI Studio APIキー（個人利用・クォータ制限あり）
  * 3. ADC - Application Default Credentials（ローカル開発用）
+ *
+ * 注: Google AI Studioはクォータが厳しく個人利用向けのため、
+ *     本番運用ではVertex AI（サービスアカウント認証）を優先する
  *
  * テキスト分析: Vertex AI gemini-2.0-flash-exp
  * 画像生成: Gemini 3 Pro Image (gemini-3-pro-image-preview / Nano Banana Pro) のみ使用
@@ -76,24 +79,19 @@ function getVertexAI(): VertexAI {
  * Google Gen AI クライアントを取得（Gemini 3 Pro Image用）
  *
  * 認証優先順位:
- * 1. GEMINI_API_KEY - Google AI Studio（APIキー認証）- 優先
- * 2. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI（サービスアカウント）
- * 3. ADC - Application Default Credentials
+ * 1. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI（サービスアカウント）- 本番用・優先
+ * 2. GEMINI_API_KEY - Google AI Studio（APIキー認証）- 個人利用向け
+ * 3. ADC - Application Default Credentials（ローカル開発用）
+ *
+ * 注: Google AI Studioはクォータが厳しいため、本番運用ではVertex AIを優先
  */
 function getGoogleGenAI(): GoogleGenAI {
-  // 1. Google AI Studio APIキー（優先）
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey) {
-    console.log('[GenAI] Using Google AI Studio (API key)');
-    return new GoogleGenAI({ apiKey });
-  }
-
-  // 2. サービスアカウントキー（Vertex AI）
+  // 1. サービスアカウントキー（Vertex AI）- 本番用・優先
   const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (serviceAccountKey) {
     try {
       const credentials = JSON.parse(serviceAccountKey);
-      console.log('[GenAI] Using Vertex AI (service account)');
+      console.log('[GenAI] Using Vertex AI (service account) - production mode');
       return new GoogleGenAI({
         vertexai: true,
         project: credentials.project_id || PROJECT_ID,
@@ -107,8 +105,15 @@ function getGoogleGenAI(): GoogleGenAI {
     }
   }
 
-  // 3. ADC を使用（Vertex AI）
-  console.log('[GenAI] Using Vertex AI (ADC)');
+  // 2. Google AI Studio APIキー（個人利用向け・クォータ制限あり）
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    console.log('[GenAI] Using Google AI Studio (API key) - personal use mode');
+    return new GoogleGenAI({ apiKey });
+  }
+
+  // 3. ADC を使用（Vertex AI）- ローカル開発用
+  console.log('[GenAI] Using Vertex AI (ADC) - local development mode');
   return new GoogleGenAI({
     vertexai: true,
     project: PROJECT_ID,
