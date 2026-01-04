@@ -7,7 +7,7 @@
  * 3. ADC - Application Default Credentials（ローカル開発用）
  *
  * テキスト分析: Vertex AI gemini-2.0-flash-exp
- * 画像生成: Vertex AI Gemini 3 Pro Image → Imagen 3 → Gemini 2.0 Flash
+ * 画像生成: Vertex AI Imagen 4 → Gemini 2.0 Flash
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -23,11 +23,11 @@ const GEMINI_AI_STUDIO_MODEL = 'gemini-2.0-flash-exp';
 // Vertex AI モデル
 const GEMINI_VERTEX_MODEL = 'gemini-2.0-flash-exp';
 
-// Gemini 3 Pro Image (Nano Banana Pro) - 画像生成専用（Vertex AI、優先使用）
-const GEMINI_3_PRO_IMAGE_MODEL = 'gemini-3-pro-image-preview';
+// Gemini 2.0 Flash - 画像生成対応（Vertex AI）
+const GEMINI_IMAGE_MODEL = 'gemini-2.0-flash-exp';
 
-// Imagen 3 - 画像生成フォールバック用
-const IMAGEN_MODEL = 'imagen-3.0-generate-001';
+// Imagen 4 - 高品質画像生成（Vertex AI、GA）
+const IMAGEN_MODEL = 'imagen-4.0-generate-001';
 
 // サービスアカウントキーを使用可能か判定（テキスト分析・画像生成共通）
 const USE_SERVICE_ACCOUNT = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -367,70 +367,8 @@ async function generateImageWithGemini(prompt: string): Promise<ImageGenerationR
 }
 
 /**
- * Gemini 3 Pro Image (Nano Banana Pro) で画像を生成
- * サービスアカウントキー使用時の最優先モデル
- * 高品質なテキストレンダリングと2K/4K解像度をサポート
- */
-async function generateImageWithGemini3ProImage(prompt: string): Promise<ImageGenerationResult> {
-  try {
-    console.log('[Image Generation] Using Gemini 3 Pro Image (Nano Banana Pro)');
-    const vertexAI = getVertexAI();
-    const model = vertexAI.getGenerativeModel({
-      model: GEMINI_3_PRO_IMAGE_MODEL,
-      generationConfig: {
-        // @ts-ignore - responseModalities is valid for Vertex AI
-        responseModalities: ['IMAGE', 'TEXT'],
-      },
-    });
-
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
-    const response = result.response;
-
-    if (response.candidates && response.candidates[0]) {
-      const parts = response.candidates[0].content?.parts || [];
-
-      for (const part of parts) {
-        // @ts-ignore - inlineData exists for image responses
-        if (part.inlineData) {
-          // @ts-ignore
-          const imageData = part.inlineData.data;
-          // @ts-ignore
-          const mimeType = part.inlineData.mimeType || 'image/png';
-
-          return {
-            success: true,
-            imageData: Buffer.from(imageData, 'base64'),
-            mimeType,
-          };
-        }
-      }
-    }
-
-    return {
-      success: false,
-      error: 'No image in response from Gemini 3 Pro Image',
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-    const is429 = errorMessage.includes('429') ||
-                  errorMessage.includes('Too Many Requests') ||
-                  errorMessage.includes('quota') ||
-                  errorMessage.includes('RESOURCE_EXHAUSTED');
-
-    return {
-      success: false,
-      error: `Gemini 3 Pro Image error: ${errorMessage}`,
-      isRateLimited: is429,
-      retryAfterMs: is429 ? 60000 : undefined,
-    };
-  }
-}
-
-/**
- * Imagen 3 で画像を生成（フォールバック用）
+ * Imagen 4 で画像を生成
+ * サービスアカウントキー使用時の優先モデル
  */
 async function generateImageWithImagen(prompt: string): Promise<ImageGenerationResult> {
   try {
@@ -501,15 +439,14 @@ async function generateImageWithImagen(prompt: string): Promise<ImageGenerationR
  * 画像を生成（戦略に基づいてモデルを選択）
  *
  * 優先順位:
- * 1. GOOGLE_SERVICE_ACCOUNT_KEY がある場合: Gemini 3 Pro Image を使用（最高品質）
- * 2. Gemini 3 Pro Image 失敗時: Imagen 3 にフォールバック
+ * 1. GOOGLE_SERVICE_ACCOUNT_KEY がある場合: Imagen 4 を使用（高品質）
+ * 2. Imagen 4 失敗時: Gemini 2.0 Flash にフォールバック
  * 3. GEMINI_API_KEY のみの場合: Google AI Studio gemini-2.0-flash-exp を使用
  *
  * 環境変数 IMAGE_MODEL_STRATEGY で強制切り替え可能:
  * - 'gemini': Gemini 2.0 Flash のみ使用
- * - 'imagen': Imagen 3 のみ使用
- * - 'gemini3': Gemini 3 Pro Image のみ使用
- * - 'auto': サービスアカウントキーがあればGemini 3 Pro Image優先（デフォルト）
+ * - 'imagen': Imagen 4 のみ使用
+ * - 'auto': サービスアカウントキーがあればImagen 4優先（デフォルト）
  */
 export async function generateImage(
   prompt: string,
@@ -519,7 +456,7 @@ export async function generateImage(
 
   // 強制的にImagenのみ使用
   if (strategy === 'imagen') {
-    console.log('[Image Generation] Strategy: imagen - Using Imagen 3');
+    console.log('[Image Generation] Strategy: imagen - Using Imagen 4');
     return generateImageWithImagen(prompt);
   }
 
@@ -529,39 +466,20 @@ export async function generateImage(
     return generateImageWithGemini(prompt);
   }
 
-  // 強制的にGemini 3 Pro Imageのみ使用
-  if (strategy === 'gemini3') {
-    console.log('[Image Generation] Strategy: gemini3 - Using Gemini 3 Pro Image');
-    return generateImageWithGemini3ProImage(prompt);
-  }
-
-  // auto戦略: サービスアカウントキーがあればGemini 3 Pro Imageを優先使用
+  // auto戦略: サービスアカウントキーがあればImagen 4を優先使用
   if (USE_SERVICE_ACCOUNT) {
-    // Step 1: Gemini 3 Pro Image を試行
-    const gemini3Result = await generateImageWithGemini3ProImage(prompt);
-
-    if (gemini3Result.success) {
-      return gemini3Result;
-    }
-
-    // Step 2: Gemini 3 Pro Image が失敗した場合、Imagen 3 にフォールバック
-    console.log('[Image Generation] Gemini 3 Pro Image failed, trying Imagen 3...');
-    console.log('[Image Generation] Error:', gemini3Result.error);
+    // Step 1: Imagen 4 を試行
+    console.log('[Image Generation] Using Imagen 4 (service account)');
     const imagenResult = await generateImageWithImagen(prompt);
 
     if (imagenResult.success) {
       return imagenResult;
     }
 
-    // Step 3: Imagen 3 も失敗した場合、APIキーがあればGemini 2.0 Flashにフォールバック
-    if (USE_API_KEY) {
-      console.log('[Image Generation] Imagen 3 failed, falling back to Gemini 2.0 Flash...');
-      console.log('[Image Generation] Error:', imagenResult.error);
-      return generateImageWithGemini(prompt);
-    }
-
-    // フォールバック先がない場合は最後のエラーを返す
-    return imagenResult;
+    // Step 2: Imagen 4 が失敗した場合、Gemini 2.0 Flashにフォールバック
+    console.log('[Image Generation] Imagen 4 failed, trying Gemini 2.0 Flash...');
+    console.log('[Image Generation] Error:', imagenResult.error);
+    return generateImageWithGemini(prompt);
   }
 
   // サービスアカウントキーがない場合: Geminiを使用
