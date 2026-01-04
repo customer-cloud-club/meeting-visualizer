@@ -2,10 +2,7 @@ version: 0.2
 
 # Meeting Visualizer - CodeBuild Build Spec
 # Docker イメージをビルドして ECR にプッシュ
-
-env:
-  secrets-manager:
-    GITHUB_TOKEN: "meeting-visualizer-dev-secrets:GITHUB_TOKEN"
+# ENVIRONMENT変数でdev/prod切り替え
 
 phases:
   pre_build:
@@ -15,6 +12,16 @@ phases:
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
       - echo "Building image with tag $IMAGE_TAG"
+      - echo "Environment is $ENVIRONMENT"
+      - |
+        if [ "$ENVIRONMENT" = "prod" ]; then
+          SECRET_NAME="meeting-visualizer-prod-secrets"
+        else
+          SECRET_NAME="meeting-visualizer-dev-secrets"
+        fi
+        echo "Using secret: $SECRET_NAME"
+        export GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id $SECRET_NAME --query SecretString --output text | jq -r '.GITHUB_TOKEN')
+        echo "GITHUB_TOKEN length=${#GITHUB_TOKEN}"
 
   build:
     commands:
@@ -22,7 +29,6 @@ phases:
       - echo Building the Docker image...
       - echo "ECR_REPOSITORY_URL=$ECR_REPOSITORY_URL"
       - echo "IMAGE_TAG=$IMAGE_TAG"
-      - echo "GITHUB_TOKEN length=${#GITHUB_TOKEN}"
       - DOCKER_BUILDKIT=0 docker build --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" -t "$ECR_REPOSITORY_URL:$IMAGE_TAG" -t "$ECR_REPOSITORY_URL:latest" .
 
   post_build:

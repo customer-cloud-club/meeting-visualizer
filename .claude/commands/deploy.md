@@ -458,6 +458,35 @@ aws codepipeline put-approval-result \
 
 このコマンドを実行する際、必ず以下のGitHub Issue連携を行ってください：
 
+### ⚠️ 重要: Phase Issue作成は必須
+
+**Phase Issueが作成されない場合、このコマンドは失敗とみなされます。**
+
+実行時に必ず以下を確認してください：
+1. Phase 7 Issueが存在するか確認
+2. 存在しない場合は**必ず作成**
+3. 作成後、Issue URLをユーザーに報告
+
+### Step 0: ccagi-sdk依存関係チェック（必須）
+
+**デプロイ前に必ずccagi-sdkが正しく設定されているか確認：**
+
+```bash
+# package.json の dependencies に ccagi-sdk がないか確認
+if grep -q '"@customer-cloud/ccagi-sdk"' package.json 2>/dev/null; then
+  if grep -A20 '"dependencies"' package.json | grep -q '"@customer-cloud/ccagi-sdk"'; then
+    echo "⚠️ 警告: ccagi-sdk が dependencies に含まれています"
+    echo "→ devDependencies に移動してください"
+    echo ""
+    echo "修正方法:"
+    echo "  npm uninstall @customer-cloud/ccagi-sdk"
+    echo "  npm install -D @customer-cloud/ccagi-sdk"
+  fi
+fi
+```
+
+ccagi-sdkが `dependencies` にある場合は、デプロイ前に `devDependencies` に移動するよう警告してください。
+
 ### Step 1: SSOT Issue・Phase 7 Issue取得
 
 `.ccagi.yml` からIssue番号を取得：

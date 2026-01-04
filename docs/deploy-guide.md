@@ -223,40 +223,92 @@ open https://dev.meeting-visualizer.example.com
 
 ## 4. 本番環境デプロイ
 
+### 4.0 本番環境情報
+
+| 項目 | 値 |
+|------|-----|
+| AWS Account | 661103479219 |
+| Region | ap-northeast-1 |
+| ECS Cluster | meeting-visualizer-prod |
+| ECR Repository | meeting-visualizer (既存) |
+| ドメイン | meeting.aidreams-factory.com |
+| Secrets | meeting-visualizer/gemini-api-key (既存) |
+
 ### 4.1 本番環境用の準備
 
 ```bash
-# 新しいワークスペースで初期化
-cd /path/to/meeting-visualizer/infra/terraform
-terraform init -backend-config=environments/prod/backend.hcl -reconfigure
+cd /path/to/meeting-visualizer/infra/terraform/prod
+
+# Terraform 初期化
+terraform init
 ```
+
+**事前に必要な作業:**
+
+1. SSL証明書の作成（ACM）
+   - ALB用: `ap-northeast-1` で `meeting.aidreams-factory.com`
+   - CloudFront用: `us-east-1` で `meeting.aidreams-factory.com`
+
+2. CodeStar Connection確認/作成
+   - 本番アカウントでGitHub連携
+
+3. Terraform State用S3バケット
+   - `meeting-visualizer-tfstate-prod`
+
+詳細: `infra/terraform/prod/DEPLOY_CHECKLIST.md`
 
 ### 4.2 環境変数ファイル編集
 
 ```bash
-vim environments/prod/terraform.tfvars
-# 本番用の値に更新
+vim prod.tfvars
+
+# 以下を設定:
+# - certificate_arn (ALB用SSL証明書)
+# - cloudfront_certificate_arn (CloudFront用SSL証明書)
+# - codestar_connection_arn (GitHub連携)
 ```
 
 ### 4.3 プラン確認 & 適用
 
 ```bash
 # プラン確認
-terraform plan \
-  -var-file=environments/prod/terraform.tfvars \
-  -var="gemini_api_key=YOUR_GEMINI_API_KEY" \
-  -var="github_token=YOUR_GITHUB_TOKEN"
+terraform plan -var-file=prod.tfvars
 
 # 適用
-terraform apply \
-  -var-file=environments/prod/terraform.tfvars \
-  -var="gemini_api_key=YOUR_GEMINI_API_KEY" \
-  -var="github_token=YOUR_GITHUB_TOKEN"
+terraform apply -var-file=prod.tfvars
 ```
 
 ### 4.4 本番DNS設定
 
-開発環境と同様にRoute 53でDNSレコードを設定。
+Route 53 で CloudFront へのエイリアスレコードを作成:
+- ドメイン: `meeting.aidreams-factory.com`
+- タイプ: A - エイリアス
+- ルーティング先: CloudFront ディストリビューション
+
+### 4.5 本番デプロイ（CodePipeline）
+
+本番環境は承認付きCodePipelineでデプロイ:
+
+```
+main ブランチへ push
+    ↓
+CodePipeline 自動起動
+    ↓
+Source → Build → Approval (手動承認) → Deploy
+```
+
+承認はAWS ConsoleまたはCLIで実行:
+
+```bash
+# 承認
+aws codepipeline put-approval-result \
+  --pipeline-name meeting-visualizer-prod-pipeline \
+  --stage-name Approval \
+  --action-name ManualApproval \
+  --result "summary=Approved,status=Approved" \
+  --token <approval-token> \
+  --profile prod-shared-infra
+```
 
 ---
 

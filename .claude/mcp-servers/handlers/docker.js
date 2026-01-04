@@ -145,19 +145,21 @@ export const dockerTools = {
   },
 
   docker_build: {
-    description: 'Dockerイメージをビルド',
+    description: 'Dockerイメージをビルド（ECS Fargate対応）',
     inputSchema: {
       type: 'object',
       properties: {
         tag: { type: 'string', description: 'イメージタグ' },
         path: { type: 'string', description: 'Dockerfileのパス', default: '.' },
-        noCache: { type: 'boolean', default: false }
+        noCache: { type: 'boolean', default: false },
+        platform: { type: 'string', description: 'ターゲットプラットフォーム', default: 'linux/amd64' }
       },
       required: ['tag']
     },
-    handler: async ({ tag, path = '.', noCache }) => {
+    handler: async ({ tag, path = '.', noCache, platform = 'linux/amd64' }) => {
       const cacheFlag = noCache ? '--no-cache' : '';
-      return execDocker(`build -t ${tag} ${cacheFlag} ${path}`);
+      const platformFlag = `--platform ${platform}`;
+      return execDocker(`build ${platformFlag} -t ${tag} ${cacheFlag} ${path}`);
     }
   },
 

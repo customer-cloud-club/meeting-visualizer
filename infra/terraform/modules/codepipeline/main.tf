@@ -79,6 +79,12 @@ variable "buildspec_path" {
   default     = "buildspec.yml"
 }
 
+variable "container_name" {
+  description = "Container name for ECS task"
+  type        = string
+  default     = "app"
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
@@ -335,6 +341,11 @@ resource "aws_codebuild_project" "build" {
       name  = "ENVIRONMENT"
       value = var.environment
     }
+
+    environment_variable {
+      name  = "CONTAINER_NAME"
+      value = var.container_name
+    }
   }
 
   source {
@@ -420,9 +431,11 @@ resource "aws_codepipeline" "pipeline" {
         provider = "Manual"
         version  = "1"
 
-        configuration = {
+        configuration = var.approval_sns_topic_arn != "" ? {
           NotificationArn = var.approval_sns_topic_arn
           CustomData      = "本番環境へのデプロイを承認してください。"
+        } : {
+          CustomData = "本番環境へのデプロイを承認してください。"
         }
       }
     }

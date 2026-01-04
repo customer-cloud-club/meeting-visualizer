@@ -218,6 +218,15 @@ instructions:
 
 このコマンドを実行する際、必ず以下のGitHub Issue連携を行ってください：
 
+### ⚠️ 重要: Phase Issue作成は必須
+
+**Phase Issueが作成されない場合、このコマンドは失敗とみなされます。**
+
+実行時に必ず以下を確認してください：
+1. Phase 3 Issueが存在するか確認
+2. 存在しない場合は**必ず作成**
+3. 作成後、Issue URLをユーザーに報告
+
 ### Step 1: SSOT Issue取得
 
 `.ccagi.yml` からSSOT Issue番号を取得：

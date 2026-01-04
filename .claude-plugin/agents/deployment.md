@@ -1031,7 +1031,59 @@ Last response: 502 Bad Gateway
   - docker buildx を使用してマルチプラットフォームビルド
 ```
 
-### Case 6: Rollback失敗
+### Case 6: ECS ヘルスチェック Unhealthy (CMD vs CMD-SHELL)
+
+```yaml
+症状: |
+  ECSタスクが "UNHEALTHY" 状態になり起動しない
+  Target group health check failing
+  ローカルでは動作するがECS上では失敗
+
+原因:
+  ECSタスク定義のヘルスチェックで CMD 形式を使用しており、
+  ECS Fargate環境ではシェル環境が整っていないため実行に失敗
+
+失敗パターン:
+  # NG: CMD形式 - ECS Fargateでは動作しない場合がある
+  "healthCheck": {
+    "command": ["CMD", "/usr/bin/wget", "-4", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+  }
+
+成功パターン:
+  # OK: CMD-SHELL形式 - シェル経由で実行され確実に動作
+  "healthCheck": {
+    "command": ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/health || exit 1"]
+  }
+
+なぜCMD-SHELLが必要か:
+  | 形式      | 実行方法         | 環境                                   |
+  |-----------|------------------|----------------------------------------|
+  | CMD       | 直接実行         | シェルなし、PATH未設定の可能性         |
+  | CMD-SHELL | /bin/sh -c "..." | シェル経由、環境変数・PATHが適切に設定 |
+
+診断:
+  1. ECSコンソールでタスクのヘルスステータス確認
+  2. CloudWatch Logsでヘルスチェックエラー確認
+  3. タスク定義のhealthCheck設定を確認
+
+対応:
+  1. タスク定義のヘルスチェックをCMD-SHELL形式に変更
+  2. 新しいリビジョンを登録
+  3. サービスを更新してデプロイ
+
+  # タスク定義を更新
+  aws ecs register-task-definition --cli-input-json file://task-definition.json
+
+  # サービスを更新
+  aws ecs update-service --cluster ${cluster} --service ${service} --force-new-deployment
+
+予防:
+  - ECSタスク定義のヘルスチェックは常にCMD-SHELL形式を使用
+  - ヘルスチェックコマンドにはエラー時のexit 1を明示的に追加
+  - ローカルテスト時もdocker runでヘルスチェックを検証
+```
+
+### Case 7: Rollback失敗
 
 ```yaml
 症状: |
