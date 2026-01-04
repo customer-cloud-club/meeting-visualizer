@@ -14,13 +14,8 @@ phases:
       - echo "Building image with tag $IMAGE_TAG"
       - echo "Environment is $ENVIRONMENT"
       - |
-        if [ "$ENVIRONMENT" = "prod" ]; then
-          SECRET_NAME="meeting-visualizer-prod-secrets"
-        else
-          SECRET_NAME="meeting-visualizer-dev-secrets"
-        fi
-        echo "Using secret: $SECRET_NAME"
-        export GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id $SECRET_NAME --query SecretString --output text | jq -r '.GITHUB_TOKEN')
+        # Use shared GitHub packages token for npm private packages
+        export GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id "ai-products/github-packages-token" --query SecretString --output text)
         echo "GITHUB_TOKEN length=${#GITHUB_TOKEN}"
 
   build:
