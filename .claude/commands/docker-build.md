@@ -69,3 +69,53 @@ ECS Fargateのヘルスチェックでは、必ず `CMD-SHELL` 形式を使用�
 |-----------|------------------|----------------------------------------|
 | CMD       | 直接実行         | シェルなし、PATH未設定の可能性         |
 | CMD-SHELL | /bin/sh -c "..." | シェル経由、環境変数・PATHが適切に設定 |
+
+### 3. ECS Unhealthy 予防チェックリスト
+
+デプロイ前に以下を必ず確認してください：
+
+```bash
+# 1. プラットフォームの確認
+docker inspect --format='{{.Architecture}}' myapp:latest
+# 期待値: amd64
+
+# 2. イメージサイズの確認（大きすぎると起動が遅延）
+docker images myapp:latest --format "{{.Size}}"
+
+# 3. ローカルでヘルスチェックをテスト
+docker run -d --name test myapp:latest
+sleep 10
+docker exec test wget -q --spider http://127.0.0.1:3000/api/health && echo "OK" || echo "FAIL"
+docker rm -f test
+```
+
+### 4. トラブルシューティング
+
+| 症状 | 原因 | 解決策 |
+|------|------|--------|
+| `exec format error` | ARM→AMD64の不一致 | `--platform linux/amd64` でリビルド |
+| タスクがunhealthy | ヘルスチェック失敗 | CMD-SHELL形式を使用、startPeriodを延長 |
+| OOMKilled | メモリ不足 | タスク定義のメモリを増加 |
+| 起動タイムアウト | イメージ大きすぎ | マルチステージビルドで軽量化 |
+
+### 5. 推奨Dockerfile構成
+
+```dockerfile
+FROM node:20-slim AS base
+WORKDIR /app
+
+FROM base AS deps
+COPY package*.json ./
+RUN npm ci --only=production
+
+FROM base AS production
+# 非rootユーザー
+RUN addgroup --system app && adduser --system --group app
+USER app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --chown=app:app . .
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1:3000/api/health || exit 1
+CMD ["node", "dist/index.js"]
+```

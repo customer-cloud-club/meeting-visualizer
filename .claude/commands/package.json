@@ -1,0 +1,94 @@
+{
+  "name": "@customer-cloud/ccagi-sdk",
+  "version": "6.22.14",
+  "description": "CCAGI SDK - Customer Cloud AGI System SDK for automated application development",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ccagi-sdk": "./src/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/sdk/core/index.d.ts",
+      "import": "./dist/sdk/core/index.js"
+    },
+    "./upf": {
+      "types": "./dist/sdk/upf/index.d.ts",
+      "import": "./dist/sdk/upf/index.js"
+    },
+    "./miyabi": {
+      "types": "./dist/sdk/miyabi/index.d.ts",
+      "import": "./dist/sdk/miyabi/index.js"
+    },
+    "./agents": {
+      "types": "./dist/sdk/agents/index.d.ts",
+      "import": "./dist/sdk/agents/index.js"
+    },
+    "./ssot": {
+      "types": "./dist/sdk/ssot/index.d.ts",
+      "import": "./dist/sdk/ssot/index.js"
+    },
+    "./commands": {
+      "types": "./dist/sdk/commands/index.d.ts",
+      "import": "./dist/sdk/commands/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "src",
+    "sdk",
+    "dist",
+    "templates"
+  ],
+  "keywords": [
+    "ccagi",
+    "sdk",
+    "ai",
+    "automation",
+    "code-generation",
+    "claude",
+    "upf",
+    "miyabi"
+  ],
+  "author": "Customer Cloud Club",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/customer-cloud-club/ccagi-system.git",
+    "directory": "packages/ccagi-sdk"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "fs-extra": "^11.2.0",
+    "inquirer": "^9.2.0",
+    "ora": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-code": ">=1.0.0",
+    "@customer-cloud/platform-sdk": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-code": {
+      "optional": true
+    },
+    "@customer-cloud/platform-sdk": {
+      "optional": true
+    }
+  }
+}

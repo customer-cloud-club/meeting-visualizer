@@ -7,6 +7,21 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task, Edit, Skill
 
 SSOT Issueから未適用フィードバックを取得し、**適切なPhaseから自動実行**します。
 
+## 🚨 必須実行チェックリスト（スキップ不可）
+
+> **このセクションの全項目を実行しなければ、コマンドは完了とみなされません。**
+
+| # | 必須アクション | 実行方法 |
+|---|---------------|----------|
+| 1 | フィードバック取得 | `gh api` でSSOT Issueからpending状態のFBを取得 |
+| 2 | サブIssue起票 | 各Phase用のGitHub Issueを`gh issue create`で作成 |
+| 3 | Phase 4実行 | `Skill` ツールで `/implement-app` を呼び出し |
+| 4 | Phase 5実行 | `Skill` ツールで `/test` を呼び出し（**必須**） |
+| 5 | FBを適用済みに | `gh api -X PATCH` でステータスを `✅ applied` に更新 |
+| 6 | 完了報告 | SSOT Issueにサマリーコメントを追加 |
+
+**⚠️ 警告**: Phase 5（テスト）は**絶対にスキップ禁止**です。
+
 ## ⚠️ SWMLワークフロー指示（必須）
 
 このコマンドを実行する際、**必ず**以下のワークフローに従ってください：

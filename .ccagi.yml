@@ -33,11 +33,25 @@ aws:
       # ECS共通インフラ
       ecs_cluster: "ai-products-dev"
       vpc_id: "vpc-06e281e4410c97bf9"
-      # Database Strategy: sidecar (PostgreSQL container in same task)
+      # Database: 本番と同じアーキテクチャ（RDS）
       database:
-        strategy: "sidecar"
-        engine: "postgres:15-alpine"
-        persistence: "ephemeral"  # Data lost on task restart (OK for dev)
+        # RDB設定（PostgreSQL / MySQL）
+        rdb:
+          enabled: true
+          strategy: "rds"
+          engine: "postgres"
+          engine_version: "15.4"
+          instance_class: "db.t3.micro"
+          storage_gb: 20
+          multi_az: false
+          backup_retention_days: 1
+          deletion_protection: false
+        # NoSQL設定（DynamoDB）
+        nosql:
+          enabled: false
+          engine: "dynamodb"
+          billing_mode: "PAY_PER_REQUEST"
+          # テーブル定義は各プロジェクトで設定
 
     production:
       name: "共通本番環境"
@@ -47,16 +61,24 @@ aws:
       alias: "ai-factory-prod"
       # ECS共通インフラ
       ecs_cluster: "ai-products-prod"
-      # Database Strategy: RDS (managed PostgreSQL)
+      # Database: 開発と同じアーキテクチャ
       database:
-        strategy: "rds"
-        engine: "postgres"
-        engine_version: "15.4"
-        instance_class: "db.t3.micro"
-        storage_gb: 20
-        multi_az: false
-        backup_retention_days: 7
-        deletion_protection: true
+        # RDB設定（PostgreSQL / MySQL）
+        rdb:
+          enabled: true
+          strategy: "rds"
+          engine: "postgres"
+          engine_version: "15.4"
+          instance_class: "db.t3.micro"
+          storage_gb: 20
+          multi_az: false
+          backup_retention_days: 7
+          deletion_protection: true
+        # NoSQL設定（DynamoDB）
+        nosql:
+          enabled: false
+          engine: "dynamodb"
+          billing_mode: "PAY_PER_REQUEST"
 
     management:
       name: "Management"
@@ -80,21 +102,26 @@ aws:
 # ========================================
 # Database Strategy Reference
 # ========================================
-# Determines how apps with database requirements are deployed:
+# 開発・本番で同じアーキテクチャを使用（環境差異によるバグを防止）
 #
-# strategy: "sidecar"
-#   - PostgreSQL runs as container in same ECS task
-#   - Connection via localhost:5432
-#   - Data is ephemeral (lost on restart)
-#   - Best for: dev/demo environments
-#   - Cost: No additional cost
-#
-# strategy: "rds"
-#   - AWS RDS managed PostgreSQL
+# database.rdb (リレーショナルDB):
+#   engine: "postgres" | "mysql"
+#   strategy: "rds" - AWS RDS managed database
 #   - Connection via RDS endpoint
 #   - Data is persistent with backups
-#   - Best for: production environments
 #   - Cost: ~$15+/month (db.t3.micro)
+#
+# database.nosql (NoSQL):
+#   engine: "dynamodb"
+#   billing_mode: "PAY_PER_REQUEST" | "PROVISIONED"
+#   - Serverless, auto-scaling
+#   - Cost: Pay per request
+#
+# 自動検出:
+#   /migration-create, /migration-run は .ccagi.yml を参照し、
+#   有効なDBエンジンに応じたマイグレーションを生成します。
+#   - rdb.enabled: true → PostgreSQL/MySQL マイグレーション
+#   - nosql.enabled: true → DynamoDB テーブル定義
 
 # ========================================
 # LLM設定
