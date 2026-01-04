@@ -1,14 +1,16 @@
 /**
  * Gemini API クライアント
  *
- * 認証方式（優先順位）:
- * 1. GEMINI_API_KEY - Google AI Studio APIキー（推奨）
+ * 認証方式（用途別）:
+ *
+ * テキスト分析:
+ * 1. GEMINI_API_KEY - Google AI Studio APIキー（優先）
  * 2. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI サービスアカウント
  * 3. ADC - Application Default Credentials（ローカル開発用）
  *
- * 画像生成モデル:
- * - gemini-2.0-flash-exp（Google AI Studio）
- * - Imagen 3（Vertex AI、フォールバック）
+ * 画像生成:
+ * 1. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI Imagen 3（優先・高品質）
+ * 2. GEMINI_API_KEY - Google AI Studio gemini-2.0-flash-exp（フォールバック）
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -24,8 +26,11 @@ const GEMINI_AI_STUDIO_MODEL = 'gemini-2.0-flash-exp';
 // Vertex AI モデル
 const GEMINI_VERTEX_MODEL = 'gemini-2.0-flash-exp';
 
-// Imagen 3 - 画像生成専用（Vertex AIフォールバック用）
+// Imagen 3 - 画像生成専用（Vertex AI、優先使用）
 const IMAGEN_MODEL = 'imagen-3.0-generate-001';
+
+// 画像生成でサービスアカウントキーを使用可能か判定
+const USE_SERVICE_ACCOUNT_FOR_IMAGE = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 
 // Vertex AI設定
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0174389307';
@@ -334,7 +339,8 @@ async function generateImageWithGemini(prompt: string): Promise<ImageGenerationR
 }
 
 /**
- * Imagen 3 で画像を生成（フォールバック用）
+ * Imagen 3 で画像を生成（サービスアカウントキー使用時の優先モデル）
+ * 高品質な画像生成が可能
  */
 async function generateImageWithImagen(prompt: string): Promise<ImageGenerationResult> {
   try {
@@ -404,10 +410,14 @@ async function generateImageWithImagen(prompt: string): Promise<ImageGenerationR
 /**
  * 画像を生成（戦略に基づいてモデルを選択）
  *
- * 戦略:
- * - 'gemini': Gemini 3 Pro Image Previewのみ使用
- * - 'imagen': Imagen 3のみ使用
- * - 'auto': Geminiで失敗したらImagenにフォールバック（デフォルト）
+ * 優先順位:
+ * 1. GOOGLE_SERVICE_ACCOUNT_KEY がある場合: Imagen 3 を使用（高品質）
+ * 2. GEMINI_API_KEY のみの場合: Google AI Studio gemini-2.0-flash-exp を使用
+ *
+ * 環境変数 IMAGE_MODEL_STRATEGY で強制切り替え可能:
+ * - 'gemini': Gemini のみ使用
+ * - 'imagen': Imagen 3 のみ使用
+ * - 'auto': サービスアカウントキーがあればImagen優先、なければGemini（デフォルト）
  */
 export async function generateImage(
   prompt: string,
@@ -415,34 +425,41 @@ export async function generateImage(
 ): Promise<ImageGenerationResult> {
   const strategy = IMAGE_MODEL_STRATEGY;
 
-  // Imagenのみ使用
+  // 強制的にImagenのみ使用
   if (strategy === 'imagen') {
-    console.log('[Image Generation] Using Imagen 3');
+    console.log('[Image Generation] Strategy: imagen - Using Imagen 3');
     return generateImageWithImagen(prompt);
   }
 
-  // Geminiのみ使用
+  // 強制的にGeminiのみ使用
   if (strategy === 'gemini') {
-    console.log('[Image Generation] Using Gemini 3 Pro Image Preview');
+    console.log('[Image Generation] Strategy: gemini - Using Gemini');
     return generateImageWithGemini(prompt);
   }
 
-  // auto: GeminiでクォータエラーならImagenにフォールバック
-  console.log('[Image Generation] Trying Gemini 3 Pro Image Preview...');
-  const geminiResult = await generateImageWithGemini(prompt);
+  // auto戦略: サービスアカウントキーがあればImagen 3を優先使用
+  if (USE_SERVICE_ACCOUNT_FOR_IMAGE) {
+    console.log('[Image Generation] Using Imagen 3 (service account available)');
+    const imagenResult = await generateImageWithImagen(prompt);
 
-  if (geminiResult.success) {
-    return geminiResult;
+    if (imagenResult.success) {
+      return imagenResult;
+    }
+
+    // Imagenが失敗した場合、APIキーがあればGeminiにフォールバック
+    if (USE_API_KEY) {
+      console.log('[Image Generation] Imagen failed, falling back to Gemini...');
+      console.log('[Image Generation] Imagen error:', imagenResult.error);
+      return generateImageWithGemini(prompt);
+    }
+
+    // フォールバック先がない場合はImagenの結果を返す
+    return imagenResult;
   }
 
-  // クォータ/レート制限エラーの場合、Imagenにフォールバック
-  if (geminiResult.isRateLimited || geminiResult.error?.includes('limit: 0')) {
-    console.log('[Image Generation] Gemini quota exhausted, falling back to Imagen 3...');
-    return generateImageWithImagen(prompt);
-  }
-
-  // その他のエラーはGeminiの結果をそのまま返す
-  return geminiResult;
+  // サービスアカウントキーがない場合: Geminiを使用
+  console.log('[Image Generation] Using Gemini (no service account)');
+  return generateImageWithGemini(prompt);
 }
 
 /**
