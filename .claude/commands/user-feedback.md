@@ -82,7 +82,11 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Edit
 → 現在の作業に反映します
 ```
 
-### Step 4: SSOT Issueへのコメント追加
+### Step 4: SSOT Issueへのコメント追加【必須・スキップ不可】
+
+> ⚠️ **重要**: このステップは**スキップ不可**です。
+> SSOT Issueへの記載が完了するまで、このコマンドは「完了」とみなされません。
+> フックによる自動同期もありますが、確実性のため手動でも実行してください。
 
 `.ccagi.yml` にSSOT Issue番号がある場合、**必ず**フィードバックをIssueコメントとして記録：
 
@@ -90,8 +94,17 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Edit
 # SSOT Issue番号を取得
 SSOT_ISSUE=$(grep 'issue_number' .ccagi.yml 2>/dev/null | awk '{print $2}')
 
-if [ -n "$SSOT_ISSUE" ]; then
-  gh issue comment ${SSOT_ISSUE} --body "$(cat <<EOF
+# SSOT未設定の場合は警告して作成を促す
+if [ -z "$SSOT_ISSUE" ]; then
+  echo "⚠️ SSOT Issue が未設定です"
+  echo "→ /create-ssot-issue を実行してSSOT Issueを作成してください"
+  echo "→ または .ccagi.yml に ssot.issue_number を設定してください"
+  # ローカル記録は完了しているが、SSOT記載は未完了
+  exit 1
+fi
+
+# SSOT Issueにコメント追加
+gh issue comment ${SSOT_ISSUE} --body "$(cat <<EOF
 ## 💬 User Feedback
 
 | 項目 | 内容 |
@@ -109,8 +122,29 @@ if [ -n "$SSOT_ISSUE" ]; then
 <!-- FEEDBACK_ID:FB-$(date +%s) -->
 EOF
 )"
-  echo "📋 フィードバックをSSOT Issue #${SSOT_ISSUE} に記録しました"
+
+# 成功確認
+if [ $? -eq 0 ]; then
+  echo "✅ フィードバックをSSOT Issue #${SSOT_ISSUE} に記録しました"
+else
+  echo "❌ SSOT Issueへの記載に失敗しました"
+  echo "→ 手動で https://github.com/customer-cloud-club/ccagi-system/issues/${SSOT_ISSUE} に記載してください"
+  exit 1
 fi
+```
+
+### Step 4.5: SSOT記載確認チェック
+
+フィードバックファイルに記載完了マークを追加：
+
+```bash
+# フィードバックファイルにSSOT記載済みを記録
+FEEDBACK_FILE=".ai/feedback/YYYY-MM-DD-HH-MM-feedback.md"
+echo "" >> $FEEDBACK_FILE
+echo "---" >> $FEEDBACK_FILE
+echo "ssot_synced: true" >> $FEEDBACK_FILE
+echo "ssot_issue: ${SSOT_ISSUE}" >> $FEEDBACK_FILE
+echo "synced_at: $(date '+%Y-%m-%d %H:%M:%S')" >> $FEEDBACK_FILE
 ```
 
 ### Step 5: 現在の作業への反映

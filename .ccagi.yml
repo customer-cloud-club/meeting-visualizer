@@ -64,6 +64,17 @@ aws:
       profile: "management"
       region: "us-west-2"
 
+    dns:
+      name: "DNS管理アカウント"
+      account_id: "607520774686"
+      profile: "dns-management"
+      region: "ap-northeast-1"
+      description: "Route 53ドメイン管理（aidreams-factory.com）"
+      hosted_zone: "aidreams-factory.com"
+      subdomain_patterns:
+        production: "${product_name}.aidreams-factory.com"
+        development: "dev-${product_name}.aidreams-factory.com"
+
   default_environment: development
 
 # ========================================
@@ -162,6 +173,37 @@ agents:
     auto_format: true
     auto_lint: true
     uses_anthropic: true
+
+    # 既存コードポリシー
+    existing_code_policy:
+      # 新規ファイル: create（作成）
+      new_files: create
+
+      # 既存ファイル: patch（差分適用） | overwrite（上書き） | skip（スキップ）
+      existing_files: patch
+
+      # 保護対象パターン（変更禁止）
+      protected_patterns:
+        - "*.config.*"
+        - "package.json"
+        - "package-lock.json"
+        - ".env*"
+        - "tsconfig.json"
+        - ".ccagi.yml"
+        - ".gitignore"
+
+      # 大幅変更時の動作: auto | require_review | reject
+      major_changes: require_review
+
+      # 大幅変更の閾値（変更行数がこれを超えたら major_changes ポリシーを適用）
+      major_change_threshold: 50
+
+      # コンフリクト解決: prompt（確認） | keep_existing | use_generated
+      conflict_resolution: prompt
+
+      # バックアップ: 既存ファイル変更前にバックアップを作成
+      backup_before_modify: true
+      backup_directory: ".ccagi-backup"
 
   # SecurityAgent - セキュリティ統括
   security_agent:
@@ -307,3 +349,13 @@ advanced:
     testing: "20m"
     security_scan: "15m"
     review: "10m"
+
+# ========================================
+# SSOT (Single Source of Truth) 設定
+# ========================================
+ssot:
+  issue_number: 204
+  issue_url: "https://github.com/customer-cloud-club/ccagi-system/issues/204"
+  project_name: "ccagi-system"
+  created_at: "2026-01-04"
+  created_by: "/create-ssot-issue"
