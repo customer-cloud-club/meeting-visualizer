@@ -1,9 +1,17 @@
 /**
  * YAML生成エンジン
  * 構造化データからNano Banana Pro用YAMLプロンプトを生成
+ *
+ * プロンプト標準化: Issue #44
+ * Structured Hand-Drawn Infographic Output Format を使用
  */
 
 import type { AnalysisResult, Topic } from '../types/analysis';
+import {
+  DEFAULT_IMAGE_STYLE,
+  buildGlobalStylePrompt,
+  type ImagePromptConfig,
+} from '../config/image-prompt-template';
 
 export interface YAMLPrompt {
   id: string;
@@ -15,23 +23,42 @@ type Language = 'ja' | 'en';
 
 /**
  * 分析結果から複数のYAMLプロンプトを生成
+ *
+ * @param analysis 分析結果
+ * @param language 言語設定 (ja/en)
+ * @param styleConfig カスタムスタイル設定（オプション）
  */
-export function generateYAMLPrompts(analysis: AnalysisResult, language: Language = 'ja'): YAMLPrompt[] {
+export function generateYAMLPrompts(
+  analysis: AnalysisResult,
+  language: Language = 'ja',
+  styleConfig?: ImagePromptConfig
+): YAMLPrompt[] {
+  // スタイル設定をマージ（デフォルト + カスタム）
+  const config: ImagePromptConfig = styleConfig
+    ? { ...DEFAULT_IMAGE_STYLE, ...styleConfig, language }
+    : { ...DEFAULT_IMAGE_STYLE, language };
+
   return analysis.topics.map((topic, index) =>
-    generateSinglePrompt(topic, index, analysis.overallTheme, language)
+    generateSinglePrompt(topic, index, analysis.overallTheme, language, config)
   );
 }
 
 /**
  * 単一トピックからYAMLプロンプトを生成
+ *
+ * Issue #44: Structured Hand-Drawn Infographic Output Format を使用
  */
 function generateSinglePrompt(
   topic: Topic,
   index: number,
   overallTheme: string,
-  language: Language
+  language: Language,
+  config: ImagePromptConfig
 ): YAMLPrompt {
   const id = `slide_${String(index + 1).padStart(2, '0')}`;
+
+  // グローバルスタイル定義を取得（Issue #44 標準フォーマット）
+  const globalStyle = buildGlobalStylePrompt(config);
 
   // ビジュアル要素の説明を構築
   const visualDescription = buildVisualDescription(topic);
@@ -42,29 +69,15 @@ function generateSinglePrompt(
   // 構図の説明を構築
   const compositionDescription = buildComposition(topic);
 
-  // Language-specific prompt
+  // Language-specific instruction
   const languageInstruction = language === 'en'
     ? `Create a hand-drawn infographic illustration in English.`
     : `Create a hand-drawn infographic illustration in Japanese.`;
 
-  const textLanguageNote = language === 'en'
-    ? `CRITICAL: All text labels MUST be written in English. The text must be clearly readable.`
-    : `CRITICAL: All text labels MUST be written in Japanese hiragana/katakana/kanji. The text must be clearly readable.`;
-
+  // 標準化されたプロンプト構造（Issue #44準拠）
   const prompt = `${languageInstruction}
 
-=== ART STYLE ===
-- Style: Graphic Recording / Hand-drawn Sketch
-- Texture: Marker pens, crayons, and colored pencils on paper texture
-- Vibe: Friendly, soft, approachable, 'Student's Notebook' feel
-- Imperfection: High - embrace rough lines, slight smudges, and human touch
-
-=== COLOR PALETTE ===
-- Background: Clean white or off-white paper texture
-- Outlines: Black or dark charcoal marker
-- Emphasis: Yellow / Orange (marker/crayon texture)
-- Structure: Blue / Green (marker/crayon texture)
-- Warning: Red (marker/crayon texture)
+${globalStyle}
 
 === VISUAL ELEMENTS ===
 ${visualDescription}
@@ -78,7 +91,10 @@ ${compositionDescription}
 === OVERALL THEME ===
 ${overallTheme}
 
-${textLanguageNote}`;
+=== GENERATION INSTRUCTIONS ===
+Generate a hand-drawn infographic illustration following the above specifications.
+The image should look like a friendly, approachable sketch that explains complex concepts
+using visual metaphors. Embrace imperfection and human touch in the drawing style.`;
 
   return {
     id,
