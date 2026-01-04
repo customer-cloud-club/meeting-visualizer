@@ -59,6 +59,11 @@ variable "certificate_arn" {
   default = "arn:aws:acm:ap-northeast-1:805673386383:certificate/ffd63505-b4c6-4c48-b803-1989803c9b1d"
 }
 
+variable "cloudfront_certificate_arn" {
+  # CloudFront用証明書 (us-east-1)
+  default = "arn:aws:acm:us-east-1:805673386383:certificate/bacc16f9-c868-4300-9778-7451265e9c19"
+}
+
 variable "container_cpu" {
   default = 256
 }
@@ -599,4 +604,118 @@ output "pipeline_name" {
 
 output "codebuild_project_name" {
   value = module.codepipeline.codebuild_project_name
+}
+
+# ========================================
+# CloudFront Distribution
+# ========================================
+
+resource "aws_cloudfront_distribution" "main" {
+  enabled             = true
+  is_ipv6_enabled     = true
+  comment             = "${var.project_name}-${var.environment}"
+  default_root_object = ""
+  aliases             = [var.domain_name]
+  price_class         = "PriceClass_200" # Asia, Europe, North America
+
+  origin {
+    domain_name = aws_lb.main.dns_name
+    origin_id   = "alb-origin"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD", "OPTIONS"]
+    target_origin_id = "alb-origin"
+
+    forwarded_values {
+      query_string = true
+      headers      = ["Host", "Origin", "Authorization", "Accept", "Accept-Language"]
+
+      cookies {
+        forward = "all"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
+    compress               = true
+  }
+
+  # Static assets cache behavior
+  ordered_cache_behavior {
+    path_pattern     = "/_next/static/*"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD", "OPTIONS"]
+    target_origin_id = "alb-origin"
+
+    forwarded_values {
+      query_string = false
+      headers      = ["Host"]  # ALB requires Host header
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 86400     # 1 day
+    default_ttl            = 604800    # 7 days
+    max_ttl                = 31536000  # 1 year
+    compress               = true
+  }
+
+  # API endpoints - no cache
+  ordered_cache_behavior {
+    path_pattern     = "/api/*"
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD", "OPTIONS"]
+    target_origin_id = "alb-origin"
+
+    forwarded_values {
+      query_string = true
+      headers      = ["*"]
+
+      cookies {
+        forward = "all"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
+    compress               = true
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    acm_certificate_arn      = var.cloudfront_certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  tags = { Name = "${var.project_name}-${var.environment}-cloudfront" }
+}
+
+output "cloudfront_distribution_id" {
+  value = aws_cloudfront_distribution.main.id
+}
+
+output "cloudfront_domain_name" {
+  value = aws_cloudfront_distribution.main.domain_name
 }
