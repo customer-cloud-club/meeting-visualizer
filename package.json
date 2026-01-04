@@ -33,6 +33,7 @@
     "uuid": "^11.0.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.1",
     "@playwright/test": "^1.57.0",
     "@types/archiver": "^7.0.0",
     "@types/node": "^20.10.0",

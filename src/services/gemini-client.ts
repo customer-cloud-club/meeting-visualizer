@@ -27,6 +27,8 @@ const USE_SERVICE_ACCOUNT = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 // Vertex AI設定
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0174389307';
 const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+// Gemini 3 Pro Image はグローバルリージョンでのみ利用可能
+const IMAGE_LOCATION = 'global';
 
 /**
  * Vertex AIインスタンスを取得（サービスアカウント認証）
@@ -63,6 +65,9 @@ function getVertexAI(): VertexAI {
  * - GOOGLE_SERVICE_ACCOUNT_KEY がある場合: サービスアカウント認証
  * - ない場合: ADC (Application Default Credentials)
  *
+ * 重要: Gemini 3 Pro Image はグローバルリージョン（location: 'global'）でのみ利用可能
+ * https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-pro-image
+ *
  * 注: Google AI Studio (APIキー認証) は使用しない（クォータが厳しく本番運用に不向き）
  */
 function getGoogleGenAI(): GoogleGenAI {
@@ -71,11 +76,11 @@ function getGoogleGenAI(): GoogleGenAI {
   if (serviceAccountKey) {
     try {
       const credentials = JSON.parse(serviceAccountKey);
-      console.log('[GenAI] Using Vertex AI (service account) - production mode');
+      console.log('[GenAI] Using Vertex AI (service account) - production mode, location: global');
       return new GoogleGenAI({
         vertexai: true,
         project: credentials.project_id || PROJECT_ID,
-        location: LOCATION,
+        location: IMAGE_LOCATION, // Gemini 3 Pro Image requires 'global' location
         googleAuthOptions: {
           credentials,
         },
@@ -87,11 +92,11 @@ function getGoogleGenAI(): GoogleGenAI {
   }
 
   // 2. ADC を使用（Vertex AI）- ローカル開発用
-  console.log('[GenAI] Using Vertex AI (ADC) - local development mode');
+  console.log('[GenAI] Using Vertex AI (ADC) - local development mode, location: global');
   return new GoogleGenAI({
     vertexai: true,
     project: PROJECT_ID,
-    location: LOCATION,
+    location: IMAGE_LOCATION, // Gemini 3 Pro Image requires 'global' location
   });
 }
 
