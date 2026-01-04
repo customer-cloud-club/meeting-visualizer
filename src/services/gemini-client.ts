@@ -1,16 +1,13 @@
 /**
  * Gemini API クライアント
  *
- * 認証方式（用途別）:
- *
- * テキスト分析:
- * 1. GEMINI_API_KEY - Google AI Studio APIキー（優先）
- * 2. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI サービスアカウント
+ * 認証方式（統一優先順位）:
+ * 1. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI サービスアカウント（優先）
+ * 2. GEMINI_API_KEY - Google AI Studio APIキー（フォールバック）
  * 3. ADC - Application Default Credentials（ローカル開発用）
  *
- * 画像生成:
- * 1. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI Gemini 3 Pro Image（優先・高品質）
- * 2. GEMINI_API_KEY - Google AI Studio gemini-2.0-flash-exp（フォールバック）
+ * テキスト分析: Vertex AI gemini-2.0-flash-exp
+ * 画像生成: Vertex AI Gemini 3 Pro Image → Imagen 3 → Gemini 2.0 Flash
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -32,8 +29,8 @@ const GEMINI_3_PRO_IMAGE_MODEL = 'gemini-3-pro-image-preview';
 // Imagen 3 - 画像生成フォールバック用
 const IMAGEN_MODEL = 'imagen-3.0-generate-001';
 
-// 画像生成でサービスアカウントキーを使用可能か判定
-const USE_SERVICE_ACCOUNT_FOR_IMAGE = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+// サービスアカウントキーを使用可能か判定（テキスト分析・画像生成共通）
+const USE_SERVICE_ACCOUNT = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 
 // Vertex AI設定
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0174389307';
@@ -119,6 +116,10 @@ function getPredictionClient(): InstanceType<typeof PredictionServiceClient> {
 
 /**
  * テキスト分析（JSON出力）
+ *
+ * 認証優先順位:
+ * 1. GOOGLE_SERVICE_ACCOUNT_KEY がある場合: Vertex AI（優先）
+ * 2. GEMINI_API_KEY のみの場合: Google AI Studio
  */
 export async function analyzeWithJSON<T>(
   systemPrompt: string,
@@ -127,8 +128,31 @@ export async function analyzeWithJSON<T>(
 ): Promise<T> {
   const prompt = `${systemPrompt}\n\n${userMessage}`;
 
-  // APIキー認証（Google AI Studio）
+  // サービスアカウントキーがある場合はVertex AIを優先
+  if (USE_SERVICE_ACCOUNT) {
+    console.log('[Text Analysis] Using Vertex AI (service account)');
+    const vertexAI = getVertexAI();
+    const model = vertexAI.getGenerativeModel({
+      model: GEMINI_VERTEX_MODEL,
+      generationConfig: {
+        temperature: 0.3,
+        // @ts-ignore - responseModalities is valid for Vertex AI
+        responseModalities: ['TEXT'],
+      },
+    });
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+    const response = result.response;
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    return parseJSONResponse<T>(text);
+  }
+
+  // APIキー認証（Google AI Studio）- フォールバック
   if (USE_API_KEY) {
+    console.log('[Text Analysis] Using Google AI Studio (API key)');
     const genAI = getGoogleAI();
     const model = genAI.getGenerativeModel({
       model: GEMINI_AI_STUDIO_MODEL,
@@ -144,7 +168,8 @@ export async function analyzeWithJSON<T>(
     return parseJSONResponse<T>(text);
   }
 
-  // Vertex AI（サービスアカウント/ADC認証）
+  // どちらもない場合はADCを使用
+  console.log('[Text Analysis] Using Vertex AI (ADC)');
   const vertexAI = getVertexAI();
   const model = vertexAI.getGenerativeModel({
     model: GEMINI_VERTEX_MODEL,
@@ -511,7 +536,7 @@ export async function generateImage(
   }
 
   // auto戦略: サービスアカウントキーがあればGemini 3 Pro Imageを優先使用
-  if (USE_SERVICE_ACCOUNT_FOR_IMAGE) {
+  if (USE_SERVICE_ACCOUNT) {
     // Step 1: Gemini 3 Pro Image を試行
     const gemini3Result = await generateImageWithGemini3ProImage(prompt);
 
