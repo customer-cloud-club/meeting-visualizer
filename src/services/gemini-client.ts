@@ -1,24 +1,19 @@
 /**
  * Gemini API クライアント
  *
- * 認証方式（優先順位）:
- * 1. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI サービスアカウント（本番用・優先）
- * 2. GEMINI_API_KEY - Google AI Studio APIキー（個人利用・クォータ制限あり）
- * 3. ADC - Application Default Credentials（ローカル開発用）
+ * 認証方式: Vertex AI サービスアカウント認証のみ
+ * - GOOGLE_SERVICE_ACCOUNT_KEY 環境変数が必須
+ * - Google AI Studio (APIキー認証) は使用しない（クォータが厳しく本番運用に不向き）
  *
- * 注: Google AI Studioはクォータが厳しく個人利用向けのため、
- *     本番運用ではVertex AI（サービスアカウント認証）を優先する
+ * フォールバック:
+ * - サービスアカウントキーがない場合: ADC (Application Default Credentials)
  *
  * テキスト分析: Vertex AI gemini-2.0-flash-exp
- * 画像生成: Gemini 3 Pro Image (gemini-3-pro-image-preview / Nano Banana Pro) のみ使用
+ * 画像生成: Gemini 3 Pro Image (gemini-3-pro-image-preview / Nano Banana Pro)
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { VertexAI } from '@google-cloud/vertexai';
-
-// Google AI Studio モデル（APIキー認証）
-const GEMINI_AI_STUDIO_MODEL = 'gemini-2.0-flash-exp';
 
 // Vertex AI モデル（テキスト分析用）
 const GEMINI_VERTEX_MODEL = 'gemini-2.0-flash-exp';
@@ -26,26 +21,12 @@ const GEMINI_VERTEX_MODEL = 'gemini-2.0-flash-exp';
 // Gemini 3 Pro Image - 画像生成専用（Nano Banana Pro）
 const GEMINI_3_PRO_IMAGE_MODEL = 'gemini-3-pro-image-preview';
 
-// サービスアカウントキーを使用可能か判定（テキスト分析・画像生成共通）
+// サービスアカウントキーを使用可能か判定
 const USE_SERVICE_ACCOUNT = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 
 // Vertex AI設定
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0174389307';
 const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
-
-// 認証モード判定
-const USE_API_KEY = !!process.env.GEMINI_API_KEY;
-
-/**
- * Google AI Studio クライアントを取得（APIキー認証）
- */
-function getGoogleAI(): GoogleGenerativeAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not set');
-  }
-  return new GoogleGenerativeAI(apiKey);
-}
 
 /**
  * Vertex AIインスタンスを取得（サービスアカウント認証）
@@ -78,15 +59,14 @@ function getVertexAI(): VertexAI {
 /**
  * Google Gen AI クライアントを取得（Gemini 3 Pro Image用）
  *
- * 認証優先順位:
- * 1. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI（サービスアカウント）- 本番用・優先
- * 2. GEMINI_API_KEY - Google AI Studio（APIキー認証）- 個人利用向け
- * 3. ADC - Application Default Credentials（ローカル開発用）
+ * 認証方式: Vertex AI サービスアカウント認証のみ
+ * - GOOGLE_SERVICE_ACCOUNT_KEY がある場合: サービスアカウント認証
+ * - ない場合: ADC (Application Default Credentials)
  *
- * 注: Google AI Studioはクォータが厳しいため、本番運用ではVertex AIを優先
+ * 注: Google AI Studio (APIキー認証) は使用しない（クォータが厳しく本番運用に不向き）
  */
 function getGoogleGenAI(): GoogleGenAI {
-  // 1. サービスアカウントキー（Vertex AI）- 本番用・優先
+  // 1. サービスアカウントキー（Vertex AI）- 本番用
   const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (serviceAccountKey) {
     try {
@@ -102,17 +82,11 @@ function getGoogleGenAI(): GoogleGenAI {
       });
     } catch (error) {
       console.error('Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY for GenAI:', error);
+      // パース失敗時はADCにフォールバック
     }
   }
 
-  // 2. Google AI Studio APIキー（個人利用向け・クォータ制限あり）
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey) {
-    console.log('[GenAI] Using Google AI Studio (API key) - personal use mode');
-    return new GoogleGenAI({ apiKey });
-  }
-
-  // 3. ADC を使用（Vertex AI）- ローカル開発用
+  // 2. ADC を使用（Vertex AI）- ローカル開発用
   console.log('[GenAI] Using Vertex AI (ADC) - local development mode');
   return new GoogleGenAI({
     vertexai: true,
@@ -133,9 +107,9 @@ export interface ImageGenerationResult {
 /**
  * テキスト分析（JSON出力）
  *
- * 認証優先順位:
- * 1. GOOGLE_SERVICE_ACCOUNT_KEY がある場合: Vertex AI（優先）
- * 2. GEMINI_API_KEY のみの場合: Google AI Studio
+ * 認証方式: Vertex AI サービスアカウント認証のみ
+ * - GOOGLE_SERVICE_ACCOUNT_KEY がある場合: サービスアカウント認証
+ * - ない場合: ADC (Application Default Credentials)
  */
 export async function analyzeWithJSON<T>(
   systemPrompt: string,
@@ -144,48 +118,10 @@ export async function analyzeWithJSON<T>(
 ): Promise<T> {
   const prompt = `${systemPrompt}\n\n${userMessage}`;
 
-  // サービスアカウントキーがある場合はVertex AIを優先
-  if (USE_SERVICE_ACCOUNT) {
-    console.log('[Text Analysis] Using Vertex AI (service account)');
-    const vertexAI = getVertexAI();
-    const model = vertexAI.getGenerativeModel({
-      model: GEMINI_VERTEX_MODEL,
-      generationConfig: {
-        temperature: 0.3,
-        // @ts-ignore - responseModalities is valid for Vertex AI
-        responseModalities: ['TEXT'],
-      },
-    });
+  // Vertex AI を使用（サービスアカウントまたはADC）
+  const authMode = USE_SERVICE_ACCOUNT ? 'service account' : 'ADC';
+  console.log(`[Text Analysis] Using Vertex AI (${authMode})`);
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
-    const response = result.response;
-    const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    return parseJSONResponse<T>(text);
-  }
-
-  // APIキー認証（Google AI Studio）- フォールバック
-  if (USE_API_KEY) {
-    console.log('[Text Analysis] Using Google AI Studio (API key)');
-    const genAI = getGoogleAI();
-    const model = genAI.getGenerativeModel({
-      model: GEMINI_AI_STUDIO_MODEL,
-      generationConfig: {
-        temperature: 0.3,
-      },
-    });
-
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
-
-    return parseJSONResponse<T>(text);
-  }
-
-  // どちらもない場合はADCを使用
-  console.log('[Text Analysis] Using Vertex AI (ADC)');
   const vertexAI = getVertexAI();
   const model = vertexAI.getGenerativeModel({
     model: GEMINI_VERTEX_MODEL,
