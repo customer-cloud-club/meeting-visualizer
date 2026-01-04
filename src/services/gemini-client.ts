@@ -1,24 +1,30 @@
 /**
- * Gemini API クライアント (Vertex AI版)
+ * Gemini API クライアント
  *
- * 画像生成モデル優先順位:
- * 1. Gemini 3 Pro Image Preview (gemini-3-pro-image-preview)
- * 2. Imagen 3 (imagegeneration@006) - フォールバック
+ * 認証方式（優先順位）:
+ * 1. GEMINI_API_KEY - Google AI Studio APIキー（推奨）
+ * 2. GOOGLE_SERVICE_ACCOUNT_KEY - Vertex AI サービスアカウント
+ * 3. ADC - Application Default Credentials（ローカル開発用）
  *
- * テキスト分析:
- * - Gemini 3 Pro Image Preview
+ * 画像生成モデル:
+ * - gemini-2.0-flash-exp（Google AI Studio）
+ * - Imagen 3（Vertex AI、フォールバック）
  */
 
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { VertexAI } from '@google-cloud/vertexai';
 import * as aiplatform from '@google-cloud/aiplatform';
 
 const { PredictionServiceClient } = aiplatform.v1;
 const { helpers } = aiplatform;
 
-// Gemini 3 Pro Image Preview - テキストも画像も対応
-const GEMINI_MODEL = 'gemini-3-pro-image-preview';
+// Google AI Studio モデル（APIキー認証）
+const GEMINI_AI_STUDIO_MODEL = 'gemini-2.0-flash-exp';
 
-// Imagen 3 - 画像生成専用（フォールバック用）
+// Vertex AI モデル
+const GEMINI_VERTEX_MODEL = 'gemini-2.0-flash-exp';
+
+// Imagen 3 - 画像生成専用（Vertex AIフォールバック用）
 const IMAGEN_MODEL = 'imagen-3.0-generate-001';
 
 // Vertex AI設定
@@ -29,9 +35,22 @@ const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 // 'gemini' | 'imagen' | 'auto' (auto: Geminiで失敗したらImagenにフォールバック)
 const IMAGE_MODEL_STRATEGY = process.env.IMAGE_MODEL_STRATEGY || 'auto';
 
+// 認証モード判定
+const USE_API_KEY = !!process.env.GEMINI_API_KEY;
+
 /**
- * Vertex AIインスタンスを取得
- * 認証はGOOGLE_APPLICATION_CREDENTIALS環境変数で設定されたサービスアカウントキーを使用
+ * Google AI Studio クライアントを取得（APIキー認証）
+ */
+function getGoogleAI(): GoogleGenerativeAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set');
+  }
+  return new GoogleGenerativeAI(apiKey);
+}
+
+/**
+ * Vertex AIインスタンスを取得（サービスアカウント認証）
  */
 function getVertexAI(): VertexAI {
   // サービスアカウントキーが環境変数で渡された場合（AWS ECS用）
@@ -98,9 +117,29 @@ export async function analyzeWithJSON<T>(
   userMessage: string,
   _apiKey?: string // 後方互換性のため残すが未使用
 ): Promise<T> {
+  const prompt = `${systemPrompt}\n\n${userMessage}`;
+
+  // APIキー認証（Google AI Studio）
+  if (USE_API_KEY) {
+    const genAI = getGoogleAI();
+    const model = genAI.getGenerativeModel({
+      model: GEMINI_AI_STUDIO_MODEL,
+      generationConfig: {
+        temperature: 0.3,
+      },
+    });
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    return parseJSONResponse<T>(text);
+  }
+
+  // Vertex AI（サービスアカウント/ADC認証）
   const vertexAI = getVertexAI();
   const model = vertexAI.getGenerativeModel({
-    model: GEMINI_MODEL,
+    model: GEMINI_VERTEX_MODEL,
     generationConfig: {
       temperature: 0.3,
       // @ts-ignore - responseModalities is valid for Vertex AI
@@ -108,7 +147,6 @@ export async function analyzeWithJSON<T>(
     },
   });
 
-  const prompt = `${systemPrompt}\n\n${userMessage}`;
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   });
@@ -175,13 +213,58 @@ function parseJSONResponse<T>(text: string): T {
 }
 
 /**
- * Gemini 3 Pro Image Preview で画像を生成
+ * Gemini で画像を生成
+ * APIキーモードとVertex AIモードの両方に対応
  */
 async function generateImageWithGemini(prompt: string): Promise<ImageGenerationResult> {
   try {
+    // APIキー認証（Google AI Studio）
+    if (USE_API_KEY) {
+      console.log('[Image Generation] Using Google AI Studio with API key');
+      const genAI = getGoogleAI();
+      const model = genAI.getGenerativeModel({
+        model: GEMINI_AI_STUDIO_MODEL,
+        generationConfig: {
+          // @ts-ignore - responseModalities may be available
+          responseModalities: ['IMAGE', 'TEXT'],
+        },
+      });
+
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+
+      // レスポンスからインライン画像を探す
+      const candidates = response.candidates;
+      if (candidates && candidates[0]) {
+        const parts = candidates[0].content?.parts || [];
+        for (const part of parts) {
+          // @ts-ignore - inlineData may exist
+          if (part.inlineData) {
+            // @ts-ignore
+            const imageData = part.inlineData.data;
+            // @ts-ignore
+            const mimeType = part.inlineData.mimeType || 'image/png';
+
+            return {
+              success: true,
+              imageData: Buffer.from(imageData, 'base64'),
+              mimeType,
+            };
+          }
+        }
+      }
+
+      return {
+        success: false,
+        error: 'No image in response from Google AI Studio',
+      };
+    }
+
+    // Vertex AI（サービスアカウント/ADC認証）
+    console.log('[Image Generation] Using Vertex AI');
     const vertexAI = getVertexAI();
     const model = vertexAI.getGenerativeModel({
-      model: GEMINI_MODEL,
+      model: GEMINI_VERTEX_MODEL,
       generationConfig: {
         // @ts-ignore - responseModalities is valid for Vertex AI
         responseModalities: ['IMAGE', 'TEXT'],
@@ -220,6 +303,11 @@ async function generateImageWithGemini(prompt: string): Promise<ImageGenerationR
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
+    // 認証エラーの検出
+    const isAuthError = errorMessage.includes('GoogleAuthError') ||
+                        errorMessage.includes('Unable to authenticate') ||
+                        errorMessage.includes('authentication');
+
     // 429 Rate Limit / クォータエラーの検出
     const is429 = errorMessage.includes('429') ||
                   errorMessage.includes('Too Many Requests') ||
@@ -239,7 +327,7 @@ async function generateImageWithGemini(prompt: string): Promise<ImageGenerationR
     return {
       success: false,
       error: errorMessage,
-      isRateLimited: is429,
+      isRateLimited: is429 || isAuthError, // 認証エラーもフォールバック対象
       retryAfterMs: is429 ? retryAfterMs : undefined,
     };
   }
